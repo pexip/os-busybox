@@ -1,0 +1,99 @@
+commit 9ac5596a5154d789964150737a784dc4db98265b
+Author: Denys Vlasenko <vda.linux@googlemail.com>
+Date:   Sat Mar 12 05:37:54 2011 +0100
+
+    udhcpc: emit "correct" secs field
+    
+    In theory, sending secs set to constant zero should be ok too.
+    But some bleeping servers can actually be configured to answer ONLY
+    if secs is bigger than a preset value (!!)
+    http://developer.apple.com/library/mac/#documentation/Darwin/Reference/ManPages/man8/bootpd.8.html
+    grep for "reply_threshold_seconds"
+    
+    function                                             old     new   delta
+    udhcpc_main                                         2573    2623     +50
+    
+    Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+
+--- a/networking/udhcp/dhcpc.c
++++ b/networking/udhcp/dhcpc.c
+@@ -346,11 +346,19 @@ static ALWAYS_INLINE uint32_t random_xid
+ /* Initialize the packet with the proper defaults */
+ static void init_packet(struct dhcp_packet *packet, char type)
+ {
++	uint16_t secs;
++
+ 	/* Fill in: op, htype, hlen, cookie fields; message type option: */
+ 	udhcp_init_header(packet, type);
+ 
+ 	packet->xid = random_xid();
+ 
++	client_config.last_secs = monotonic_sec();
++	if (client_config.first_secs == 0)
++		client_config.first_secs = client_config.last_secs;
++	secs = client_config.last_secs - client_config.first_secs;
++	packet->secs = htons(secs);
++
+ 	memcpy(packet->chaddr, client_config.client_mac, 6);
+ 	if (client_config.clientid)
+ 		udhcp_add_binary_option(packet, client_config.clientid);
+@@ -779,6 +787,7 @@ static void change_listen_mode(int new_m
+ 	/* else LISTEN_NONE: sockfd stays closed */
+ }
+ 
++/* Called only on SIGUSR1 */
+ static void perform_renew(void)
+ {
+ 	bb_info_msg("Performing a DHCP renew");
+@@ -1242,6 +1251,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 			case BOUND:
+ 				/* 1/2 lease passed, enter renewing state */
+ 				state = RENEWING;
++				client_config.first_secs = 0; /* make secs field count from 0 */
+ 				change_listen_mode(LISTEN_KERNEL);
+ 				log1("Entering renew state");
+ 				/* fall right through */
+@@ -1281,6 +1291,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 				bb_info_msg("Lease lost, entering init state");
+ 				udhcp_run_script(NULL, "deconfig");
+ 				state = INIT_SELECTING;
++				client_config.first_secs = 0; /* make secs field count from 0 */
+ 				/*timeout = 0; - already is */
+ 				packet_num = 0;
+ 				continue;
+@@ -1297,6 +1308,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 		/* note: udhcp_sp_read checks FD_ISSET before reading */
+ 		switch (udhcp_sp_read(&rfds)) {
+ 		case SIGUSR1:
++			client_config.first_secs = 0; /* make secs field count from 0 */
+ 			perform_renew();
+ 			if (state == RENEW_REQUESTED)
+ 				goto case_RENEW_REQUESTED;
+@@ -1428,6 +1440,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 							udhcp_run_script(NULL, "deconfig");
+ 						change_listen_mode(LISTEN_RAW);
+ 						state = INIT_SELECTING;
++						client_config.first_secs = 0; /* make secs field count from 0 */
+ 						requested_ip = 0;
+ 						timeout = tryagain_timeout;
+ 						packet_num = 0;
+@@ -1475,6 +1488,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 				change_listen_mode(LISTEN_RAW);
+ 				sleep(3); /* avoid excessive network traffic */
+ 				state = INIT_SELECTING;
++				client_config.first_secs = 0; /* make secs field count from 0 */
+ 				requested_ip = 0;
+ 				timeout = 0;
+ 				packet_num = 0;
+--- a/networking/udhcp/dhcpc.h
++++ b/networking/udhcp/dhcpc.h
+@@ -21,6 +21,9 @@ struct client_config_t {
+ 	uint8_t *vendorclass;           /* Optional vendor class-id to use */
+ 	uint8_t *hostname;              /* Optional hostname to use */
+ 	uint8_t *fqdn;                  /* Optional fully qualified domain name to use */
++
++	uint16_t first_secs;
++	uint16_t last_secs;
+ } FIX_ALIASING;
+ 
+ /* server_config sits in 1st half of bb_common_bufsiz1 */
