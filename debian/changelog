@@ -1,3 +1,9 @@
+busybox (1:1.18.5-1ubuntu4.1pexip1) pexip; urgency=low
+
+  * Prepare Pexip packaging
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 24 Dec 2013 13:29:56 +0000
+
 busybox (1:1.18.5-1ubuntu4.1) precise-proposed; urgency=low
 
   [ Timo Juhani Lindfors ]
