@@ -55,7 +55,7 @@
  *
  *    - 2003/03/18 - Tsippy Mendelson <tsippy.mendelson at intel dot com> and
  *                   Shmulik Hen <shmulik.hen at intel dot com>
- *       - Moved setting the slave's mac address and openning it, from
+ *       - Moved setting the slave's mac address and opening it, from
  *         the application to the driver. This enables support of modes
  *         that need to use the unique mac address of each slave.
  *         The driver also takes care of closing the slave and restoring its
@@ -97,6 +97,43 @@
  *       - Code cleanup and style changes
  *         set version to 1.1.0
  */
+//config:config IFENSLAVE
+//config:	bool "ifenslave (13 kb)"
+//config:	default y
+//config:	select PLATFORM_LINUX
+//config:	help
+//config:	Userspace application to bind several interfaces
+//config:	to a logical interface (use with kernel bonding driver).
+
+//applet:IF_IFENSLAVE(APPLET_NOEXEC(ifenslave, ifenslave, BB_DIR_SBIN, BB_SUID_DROP, ifenslave))
+
+//kbuild:lib-$(CONFIG_IFENSLAVE) += ifenslave.o interface.o
+
+//usage:#define ifenslave_trivial_usage
+//usage:       "[-cdf] MASTER_IFACE SLAVE_IFACE..."
+//usage:#define ifenslave_full_usage "\n\n"
+//usage:       "Configure network interfaces for parallel routing\n"
+//usage:     "\n	-c	Change active slave"
+//usage:     "\n	-d	Remove slave interface from bonding device"
+//usage:     "\n	-f	Force, even if interface is not Ethernet"
+/* //usage:  "\n	-r	Create a receive-only slave" */
+//usage:
+//usage:#define ifenslave_example_usage
+//usage:       "To create a bond device, simply follow these three steps:\n"
+//usage:       "- ensure that the required drivers are properly loaded:\n"
+//usage:       "  # modprobe bonding ; modprobe <3c59x|eepro100|pcnet32|tulip|...>\n"
+//usage:       "- assign an IP address to the bond device:\n"
+//usage:       "  # ifconfig bond0 <addr> netmask <mask> broadcast <bcast>\n"
+//usage:       "- attach all the interfaces you need to the bond device:\n"
+//usage:       "  # ifenslave bond0 eth0 eth1 eth2\n"
+//usage:       "  If bond0 didn't have a MAC address, it will take eth0's. Then, all\n"
+//usage:       "  interfaces attached AFTER this assignment will get the same MAC addr.\n\n"
+//usage:       "  To detach a dead interface without setting the bond device down:\n"
+//usage:       "  # ifenslave -d bond0 eth1\n\n"
+//usage:       "  To set the bond device down and automatically release all the slaves:\n"
+//usage:       "  # ifconfig bond0 down\n\n"
+//usage:       "  To change active slave:\n"
+//usage:       "  # ifenslave -c bond0 eth0\n"
 
 #include "libbb.h"
 
@@ -244,7 +281,7 @@ static int set_if_addr(char *master_ifname, char *slave_ifname)
 		if (res < 0) {
 			ifr.ifr_addr.sa_family = AF_INET;
 			memset(ifr.ifr_addr.sa_data, 0,
-			       sizeof(ifr.ifr_addr.sa_data));
+				sizeof(ifr.ifr_addr.sa_data));
 		}
 
 		res = set_ifrname_and_do_ioctl(ifra[i].s_ioctl, &ifr, slave_ifname);
@@ -456,19 +493,15 @@ int ifenslave_main(int argc UNUSED_PARAM, char **argv)
 		OPT_d = (1 << 1),
 		OPT_f = (1 << 2),
 	};
-#if ENABLE_LONG_OPTS
-	static const char ifenslave_longopts[] ALIGN1 =
+
+	INIT_G();
+
+	opt = getopt32long(argv, "cdfa",
 		"change-active\0"  No_argument "c"
 		"detach\0"         No_argument "d"
 		"force\0"          No_argument "f"
 		/* "all-interfaces\0" No_argument "a" */
-		;
-
-	applet_long_options = ifenslave_longopts;
-#endif
-	INIT_G();
-
-	opt = getopt32(argv, "cdfa");
+	);
 	argv += optind;
 	if (opt & (opt-1)) /* Only one option can be given */
 		bb_show_usage();
@@ -520,7 +553,7 @@ int ifenslave_main(int argc UNUSED_PARAM, char **argv)
 #ifdef WHY_BOTHER
 	/* Neither -c[hange] nor -d[etach] -> it's "enslave" then;
 	 * and -f[orce] is not there too. Check that it's ethernet. */
-	if (!(opt & (OPT_d|OPT_c|OPT_f)) {
+	if (!(opt & (OPT_d|OPT_c|OPT_f))) {
 		/* The family '1' is ARPHRD_ETHER for ethernet. */
 		if (master.hwaddr.ifr_hwaddr.sa_family != 1) {
 			bb_error_msg_and_die(
@@ -551,8 +584,8 @@ int ifenslave_main(int argc UNUSED_PARAM, char **argv)
 				/* Can't work with this slave, */
 				/* remember the error and skip it */
 				bb_perror_msg(
-					"skipping %s: can't get flags",
-					slave_ifname);
+					"skipping %s: can't get %s",
+					slave_ifname, "flags");
 				res = rv;
 				continue;
 			}
@@ -569,8 +602,8 @@ int ifenslave_main(int argc UNUSED_PARAM, char **argv)
 				/* Can't work with this slave, */
 				/* remember the error and skip it */
 				bb_perror_msg(
-					"skipping %s: can't get settings",
-					slave_ifname);
+					"skipping %s: can't get %s",
+					slave_ifname, "settings");
 				res = rv;
 				continue;
 			}

@@ -13,7 +13,27 @@
  * minimalistic vlock.
  */
 /* Fixed by Erik Andersen to do passwords the tinylogin way...
- * It now works with md5, sha1, etc passwords. */
+ * It now works with md5, sha1, etc passwords.
+ */
+//config:config VLOCK
+//config:	bool "vlock (17 kb)"
+//config:	default y
+//config:	help
+//config:	Build the "vlock" applet which allows you to lock (virtual) terminals.
+//config:
+//config:	Note that busybox binary must be setuid root for this applet to
+//config:	work properly.
+
+//applet:/* Needs to be run by root or be suid root - needs to change uid and gid: */
+//applet:IF_VLOCK(APPLET(vlock, BB_DIR_USR_BIN, BB_SUID_REQUIRE))
+
+//kbuild:lib-$(CONFIG_VLOCK) += vlock.o
+
+//usage:#define vlock_trivial_usage
+//usage:       "[-a]"
+//usage:#define vlock_full_usage "\n\n"
+//usage:       "Lock a virtual terminal. A password is required to unlock.\n"
+//usage:     "\n	-a	Lock all VTs"
 
 #include "libbb.h"
 
@@ -46,8 +66,7 @@ int vlock_main(int argc UNUSED_PARAM, char **argv)
 	struct passwd *pw;
 
 	pw = xgetpwuid(getuid());
-	opt_complementary = "=0"; /* no params! */
-	getopt32(argv, "a");
+	getopt32(argv, "^" "a" "\0" "=0"/* no args!*/);
 
 	/* Ignore some signals so that we don't get killed by them */
 	bb_signals(0
@@ -85,24 +104,25 @@ int vlock_main(int argc UNUSED_PARAM, char **argv)
 	ioctl(STDIN_FILENO, VT_SETMODE, &vtm);
 #endif
 
+//TODO: use set_termios_to_raw()
 	tcgetattr(STDIN_FILENO, &oterm);
 	term = oterm;
-	term.c_iflag &= ~BRKINT;
-	term.c_iflag |= IGNBRK;
-	term.c_lflag &= ~ISIG;
-	term.c_lflag &= ~(ECHO | ECHOCTL);
+	term.c_iflag |= IGNBRK; /* ignore serial break (why? VTs don't have breaks, right?) */
+	term.c_iflag &= ~BRKINT; /* redundant? "dont translate break to SIGINT" */
+	term.c_lflag &= ~(ISIG | ECHO | ECHOCTL); /* ignore ^C ^Z, echo off */
 	tcsetattr_stdin_TCSANOW(&term);
 
-	do {
+	while (1) {
 		printf("Virtual console%s locked by %s.\n",
-				option_mask32 /*o_lock_all*/ ? "s" : "",
-				pw->pw_name);
-		if (correct_password(pw)) {
+				/* "s" if -a, else "": */ "s" + !option_mask32,
+				pw->pw_name
+		);
+		if (ask_and_check_password(pw) > 0) {
 			break;
 		}
-		bb_do_delay(FAIL_DELAY);
-		puts("Password incorrect");
-	} while (1);
+		bb_do_delay(LOGIN_FAIL_DELAY);
+		puts("Incorrect password");
+	}
 
 #ifdef __linux__
 	ioctl(STDIN_FILENO, VT_SETMODE, &ovtm);

@@ -28,14 +28,38 @@
  *
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
-#include <getopt.h>
+//config:config RUNCON
+//config:	bool "runcon (6.6 kb)"
+//config:	default n
+//config:	depends on SELINUX
+//config:	help
+//config:	Enable support to run command in specified security context.
+
+//applet:IF_RUNCON(APPLET(runcon, BB_DIR_USR_BIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_RUNCON) += runcon.o
+
+//usage:#define runcon_trivial_usage
+//usage:       "[-c] [-u USER] [-r ROLE] [-t TYPE] [-l RANGE] PROG ARGS\n"
+//usage:       "runcon CONTEXT PROG ARGS"
+//usage:#define runcon_full_usage "\n\n"
+//usage:       "Run PROG in a different security context\n"
+//usage:     "\n	CONTEXT		Complete security context\n"
+//usage:     "\n	-c	Compute process transition context before modifying"
+//usage:     "\n	-t TYPE	Type (for same role as parent)"
+//usage:     "\n	-u USER	User identity"
+//usage:     "\n	-r ROLE	Role"
+//usage:     "\n	-l RNG	Levelrange"
+
 #include <selinux/context.h>
-#include <selinux/flask.h>
+/* from deprecated <selinux/flask.h>: */
+#undef  SECCLASS_PROCESS
+#define SECCLASS_PROCESS 2
 
 #include "libbb.h"
 
 static context_t runcon_compute_new_context(char *user, char *role, char *type, char *range,
-					    char *command, int compute_trans)
+			char *command, int compute_trans)
 {
 	context_t con;
 	security_context_t cur_context;
@@ -48,9 +72,9 @@ static context_t runcon_compute_new_context(char *user, char *role, char *type, 
 
 		if (getfilecon(command, &file_context) < 0)
 			bb_error_msg_and_die("can't retrieve attributes of '%s'",
-					     command);
+					command);
 		if (security_compute_create(cur_context, file_context,
-					    SECCLASS_PROCESS, &new_context))
+					SECCLASS_PROCESS, &new_context))
 			bb_error_msg_and_die("unable to compute a new context");
 		cur_context = new_context;
 	}
@@ -70,7 +94,7 @@ static context_t runcon_compute_new_context(char *user, char *role, char *type, 
 	return con;
 }
 
-#if ENABLE_FEATURE_RUNCON_LONG_OPTIONS
+#if ENABLE_LONG_OPTS
 static const char runcon_longopts[] ALIGN1 =
 	"user\0"    Required_argument "u"
 	"role\0"    Required_argument "r"
@@ -102,11 +126,12 @@ int runcon_main(int argc UNUSED_PARAM, char **argv)
 
 	selinux_or_die();
 
-#if ENABLE_FEATURE_RUNCON_LONG_OPTIONS
-	applet_long_options = runcon_longopts;
-#endif
-	opt_complementary = "-1";
-	opts = getopt32(argv, "r:t:u:l:ch", &role, &type, &user, &range);
+	opts = getopt32long(argv, "^"
+			"r:t:u:l:ch"
+			"\0" "-1",
+			runcon_longopts,
+			&role, &type, &user, &range
+	);
 	argv += optind;
 
 	if (!(opts & OPTS_CONTEXT_COMPONENT)) {
@@ -126,12 +151,11 @@ int runcon_main(int argc UNUSED_PARAM, char **argv)
 
 	if (security_check_context(context_str(con)))
 		bb_error_msg_and_die("'%s' is not a valid context",
-				     context_str(con));
+				context_str(con));
 
 	if (setexeccon(context_str(con)))
 		bb_error_msg_and_die("can't set up security context '%s'",
-				     context_str(con));
+				context_str(con));
 
-	execvp(argv[0], argv);
-	bb_perror_msg_and_die("can't execute '%s'", argv[0]);
+	BB_EXECVP_or_die(argv);
 }

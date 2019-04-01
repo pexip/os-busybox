@@ -39,6 +39,7 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+//bbox disabled: #include <alloca.h>
 
 /* exitstatus is used to keep track of any failing calls to kernel-doc,
  * but execution continues. */
@@ -212,7 +213,7 @@ void find_export_symbols(char * filename)
  * Document all external or internal functions in a file.
  * Call kernel-doc with following parameters:
  * kernel-doc -docbook -nofunction function_name1 filename
- * function names are obtained from all the the src files
+ * function names are obtained from all the src files
  * by find_export_symbols.
  * intfunc uses -nofunction
  * extfunc uses -function
@@ -263,7 +264,7 @@ void singfunc(char * filename, char * line)
 	vec[idx++] = KERNELDOC;
 	vec[idx++] = DOCBOOK;
 
-	/* Split line up in individual parameters preceeded by FUNCTION */
+	/* Split line up in individual parameters preceded by FUNCTION */
 	for (i=0; line[i]; i++) {
 		if (isspace(line[i])) {
 			line[i] = '\0';

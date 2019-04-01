@@ -56,10 +56,10 @@ optional()
 {
 	SKIP=
 	while test "$1"; do
-		if test x"${OPTIONFLAGS/*:$1:*/y}" != x"y"; then
-			SKIP=1
-			return
-		fi
+		case "${OPTIONFLAGS}" in
+			*:$1:*) ;;
+			*) SKIP=1; return ;;
+		esac
 		shift
 	done
 }
@@ -87,6 +87,7 @@ testing()
 
   $ECHO -ne "$3" > expected
   $ECHO -ne "$4" > input
+  [ -z "$VERBOSE" ] || echo ======================
   [ -z "$VERBOSE" ] || echo "echo -ne '$4' >input"
   [ -z "$VERBOSE" ] || echo "echo -ne '$5' | $2"
   $ECHO -ne "$5" | eval "$2" > actual

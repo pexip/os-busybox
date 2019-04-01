@@ -17,6 +17,12 @@
  *	License along with this library; if not, write to the Free Software
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+//config:config FEATURE_VOLUMEID_CRAMFS
+//config:	bool "cramfs filesystem"
+//config:	default y
+//config:	depends on VOLUMEID
+
+//kbuild:lib-$(CONFIG_FEATURE_VOLUMEID_CRAMFS) += cramfs.o
 
 #include "volume_id_internal.h"
 
@@ -51,7 +57,7 @@ int FAST_FUNC volume_id_probe_cramfs(struct volume_id *id /*,uint64_t off*/)
 		volume_id_set_label_string(id, cs->name, 16);
 
 //		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-//		id->type = "cramfs";
+		IF_FEATURE_BLKID_TYPE(id->type = "cramfs";)
 		return 0;
 	}
 

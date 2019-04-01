@@ -13,7 +13,7 @@ modification, are permitted provided that the following conditions are met:
    3. The name of the author may not be used to endorse or promote products
       derived from this software without specific prior written permission.
 
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR IMPLIED
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ''AS IS'' AND ANY EXPRESS OR IMPLIED
 WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
 EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
@@ -26,7 +26,113 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
-/* Dependencies on runit_lib.c removed */
+
+//config:config CHPST
+//config:	bool "chpst (9 kb)"
+//config:	default y
+//config:	help
+//config:	chpst changes the process state according to the given options, and
+//config:	execs specified program.
+//config:
+//config:config SETUIDGID
+//config:	bool "setuidgid (4 kb)"
+//config:	default y
+//config:	help
+//config:	Sets soft resource limits as specified by options
+//config:
+//config:config ENVUIDGID
+//config:	bool "envuidgid (3.9 kb)"
+//config:	default y
+//config:	help
+//config:	Sets $UID to account's uid and $GID to account's gid
+//config:
+//config:config ENVDIR
+//config:	bool "envdir (2.5 kb)"
+//config:	default y
+//config:	help
+//config:	Sets various environment variables as specified by files
+//config:	in the given directory
+//config:
+//config:config SOFTLIMIT
+//config:	bool "softlimit (4.5 kb)"
+//config:	default y
+//config:	help
+//config:	Sets soft resource limits as specified by options
+
+//applet:IF_CHPST(    APPLET_NOEXEC(chpst,     chpst, BB_DIR_USR_BIN, BB_SUID_DROP, chpst))
+//                    APPLET_NOEXEC:name       main   location        suid_type     help
+//applet:IF_ENVDIR(   APPLET_NOEXEC(envdir,    chpst, BB_DIR_USR_BIN, BB_SUID_DROP, envdir))
+//applet:IF_ENVUIDGID(APPLET_NOEXEC(envuidgid, chpst, BB_DIR_USR_BIN, BB_SUID_DROP, envuidgid))
+//applet:IF_SETUIDGID(APPLET_NOEXEC(setuidgid, chpst, BB_DIR_USR_BIN, BB_SUID_DROP, setuidgid))
+//applet:IF_SOFTLIMIT(APPLET_NOEXEC(softlimit, chpst, BB_DIR_USR_BIN, BB_SUID_DROP, softlimit))
+
+//kbuild:lib-$(CONFIG_CHPST) += chpst.o
+//kbuild:lib-$(CONFIG_ENVDIR) += chpst.o
+//kbuild:lib-$(CONFIG_ENVUIDGID) += chpst.o
+//kbuild:lib-$(CONFIG_SETUIDGID) += chpst.o
+//kbuild:lib-$(CONFIG_SOFTLIMIT) += chpst.o
+
+//usage:#define chpst_trivial_usage
+//usage:       "[-vP012] [-u USER[:GRP]] [-U USER[:GRP]] [-e DIR]\n"
+//usage:       "	[-/ DIR] [-n NICE] [-m BYTES] [-d BYTES] [-o N]\n"
+//usage:       "	[-p N] [-f BYTES] [-c BYTES] PROG ARGS"
+//usage:#define chpst_full_usage "\n\n"
+//usage:       "Change the process state, run PROG\n"
+//usage:     "\n	-u USER[:GRP]	Set uid and gid"
+//usage:     "\n	-U USER[:GRP]	Set $UID and $GID in environment"
+//usage:     "\n	-e DIR		Set environment variables as specified by files"
+//usage:     "\n			in DIR: file=1st_line_of_file"
+//usage:     "\n	-/ DIR		Chroot to DIR"
+//usage:     "\n	-n NICE		Add NICE to nice value"
+//usage:     "\n	-m BYTES	Same as -d BYTES -s BYTES -l BYTES"
+//usage:     "\n	-d BYTES	Limit data segment"
+//usage:     "\n	-o N		Limit number of open files per process"
+//usage:     "\n	-p N		Limit number of processes per uid"
+//usage:     "\n	-f BYTES	Limit output file sizes"
+//usage:     "\n	-c BYTES	Limit core file size"
+//usage:     "\n	-v		Verbose"
+//usage:     "\n	-P		Create new process group"
+//usage:     "\n	-0		Close stdin"
+//usage:     "\n	-1		Close stdout"
+//usage:     "\n	-2		Close stderr"
+//usage:
+//usage:#define envdir_trivial_usage
+//usage:       "DIR PROG ARGS"
+//usage:#define envdir_full_usage "\n\n"
+//usage:       "Set various environment variables as specified by files\n"
+//usage:       "in the directory DIR, run PROG"
+//usage:
+//usage:#define envuidgid_trivial_usage
+//usage:       "USER PROG ARGS"
+//usage:#define envuidgid_full_usage "\n\n"
+//usage:       "Set $UID to USER's uid and $GID to USER's gid, run PROG"
+//usage:
+//usage:#define setuidgid_trivial_usage
+//usage:       "USER PROG ARGS"
+//usage:#define setuidgid_full_usage "\n\n"
+//usage:       "Set uid and gid to USER's uid and gid, drop supplementary group ids,\n"
+//usage:       "run PROG"
+//usage:
+//usage:#define softlimit_trivial_usage
+//usage:       "[-a BYTES] [-m BYTES] [-d BYTES] [-s BYTES] [-l BYTES]\n"
+//usage:       "	[-f BYTES] [-c BYTES] [-r BYTES] [-o N] [-p N] [-t N]\n"
+//usage:       "	PROG ARGS"
+//usage:#define softlimit_full_usage "\n\n"
+//usage:       "Set soft resource limits, then run PROG\n"
+//usage:     "\n	-a BYTES	Limit total size of all segments"
+//usage:     "\n	-m BYTES	Same as -d BYTES -s BYTES -l BYTES -a BYTES"
+//usage:     "\n	-d BYTES	Limit data segment"
+//usage:     "\n	-s BYTES	Limit stack segment"
+//usage:     "\n	-l BYTES	Limit locked memory size"
+//usage:     "\n	-o N		Limit number of open files per process"
+//usage:     "\n	-p N		Limit number of processes per uid"
+//usage:     "\nOptions controlling file sizes:"
+//usage:     "\n	-f BYTES	Limit output file sizes"
+//usage:     "\n	-c BYTES	Limit core file size"
+//usage:     "\nEfficiency opts:"
+//usage:     "\n	-r BYTES	Limit resident set size"
+//usage:     "\n	-t N		Limit CPU time, process receives"
+//usage:     "\n			a SIGXCPU after N seconds"
 
 #include "libbb.h"
 
@@ -149,8 +255,7 @@ static NOINLINE void edir(const char *directory_name)
 		xsetenv(d->d_name, buf);
 	}
 	closedir(dir);
-	if (fchdir(wdir) == -1)
-		bb_perror_msg_and_die("fchdir");
+	xfchdir(wdir);
 	close(wdir);
 }
 
@@ -173,7 +278,6 @@ int chpst_main(int argc UNUSED_PARAM, char **argv)
 {
 	struct bb_uidgid_t ugid;
 	char *set_user = set_user; /* for compiler */
-	char *env_user = env_user;
 	char *env_dir = env_dir;
 	char *root;
 	char *nicestr;
@@ -196,12 +300,13 @@ int chpst_main(int argc UNUSED_PARAM, char **argv)
 		// FIXME: can we live with int-sized limits?
 		// can we live with 40000 days?
 		// if yes -> getopt converts strings to numbers for us
-		opt_complementary = "-1:a+:c+:d+:f+:l+:m+:o+:p+:r+:s+:t+";
-		opt = getopt32(argv, "+a:c:d:f:l:m:o:p:r:s:t:u:U:e:"
-			IF_CHPST("/:n:vP012"),
+		opt = getopt32(argv, "^+"
+			"a:+c:+d:+f:+l:+m:+o:+p:+r:+s:+t:+u:U:e:"
+			IF_CHPST("/:n:vP012")
+			"\0" "-1",
 			&limita, &limitc, &limitd, &limitf, &limitl,
 			&limitm, &limito, &limitp, &limitr, &limits, &limitt,
-			&set_user, &env_user, &env_dir
+			&set_user, &set_user, &env_dir
 			IF_CHPST(, &root, &nicestr));
 		argv += optind;
 		if (opt & OPT_m) { // -m means -asld
@@ -229,7 +334,7 @@ int chpst_main(int argc UNUSED_PARAM, char **argv)
 
 	// envuidgid?
 	if (ENABLE_ENVUIDGID && applet_name[0] == 'e' && applet_name[3] == 'u') {
-		env_user = *argv++;
+		set_user = *argv++;
 		opt |= OPT_U;
 	}
 
@@ -343,22 +448,26 @@ int chpst_main(int argc UNUSED_PARAM, char **argv)
 	if (opt & OPT_e)
 		edir(env_dir);
 
-	// FIXME: chrooted jail must have /etc/passwd if we move this after chroot!
-	// OTOH chroot fails for non-roots!
-	// SOLUTION: cache uid/gid before chroot, apply uid/gid after
+	if (opt & (OPT_u|OPT_U))
+		xget_uidgid(&ugid, set_user);
+
+	// chrooted jail must have /etc/passwd if we move this after chroot.
+	// OTOH chroot fails for non-roots.
+	// Solution: cache uid/gid before chroot, apply uid/gid after.
 	if (opt & OPT_U) {
-		xget_uidgid(&ugid, env_user);
 		xsetenv("GID", utoa(ugid.gid));
 		xsetenv("UID", utoa(ugid.uid));
 	}
 
-	if (opt & OPT_u) {
-		xget_uidgid(&ugid, set_user);
+	if (opt & OPT_root) {
+		xchroot(root);
 	}
 
-	if (opt & OPT_root) {
-		xchdir(root);
-		xchroot(".");
+	/* nice should be done before xsetuid */
+	if (opt & OPT_n) {
+		errno = 0;
+		if (nice(xatoi(nicestr)) == -1)
+			bb_perror_msg_and_die("nice");
 	}
 
 	if (opt & OPT_u) {
@@ -366,12 +475,6 @@ int chpst_main(int argc UNUSED_PARAM, char **argv)
 			bb_perror_msg_and_die("setgroups");
 		xsetgid(ugid.gid);
 		xsetuid(ugid.uid);
-	}
-
-	if (opt & OPT_n) {
-		errno = 0;
-		if (nice(xatoi(nicestr)) == -1)
-			bb_perror_msg_and_die("nice");
 	}
 
 	if (opt & OPT_0)

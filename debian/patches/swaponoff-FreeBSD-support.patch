@@ -1,63 +1,45 @@
-From a5b837c34a96bdbb53151af455912b691c9aaa52 Mon Sep 17 00:00:00 2001
+Subject: [PATCH 19/19] swaponoff: FreeBSD support
 From: Jeremie Koenig <jk@jk.fr.eu.org>
 Date: Thu, 29 Jul 2010 21:59:54 +0200
-Subject: [PATCH 19/19] swaponoff: FreeBSD support
-
+Last-Update: 2017-08-17
 
 Signed-off-by: Jeremie Koenig <jk@jk.fr.eu.org>
----
- util-linux/Config.src  |    3 +--
- util-linux/swaponoff.c |    6 +++---
- util-linux/xmount.c    |   10 ++++++++++
- util-linux/xmount.h    |   16 ++++++++++------
- 4 files changed, 24 insertions(+), 11 deletions(-)
 
---- a/util-linux/Config.src
-+++ b/util-linux/Config.src
-@@ -634,7 +634,6 @@ config SETARCH
- config SWAPONOFF
- 	bool "swaponoff"
- 	default y
--	depends on PLATFORM_LINUX
- 	help
- 	  This option enables both the 'swapon' and the 'swapoff' utilities.
- 	  Once you have created some swap space using 'mkswap', you also need
-@@ -646,7 +645,7 @@ config SWAPONOFF
- config FEATURE_SWAPON_PRI
- 	bool "Support priority option -p"
- 	default y
--	depends on SWAPONOFF
-+	depends on SWAPONOFF && PLATFORM_LINUX
- 	help
- 	  Enable support for setting swap device priority in swapon.
- 
 --- a/util-linux/swaponoff.c
 +++ b/util-linux/swaponoff.c
-@@ -8,8 +8,8 @@
-  */
+@@ -76,10 +76,8 @@
  
  #include "libbb.h"
+ #include "common_bufsiz.h"
 +#include "xmount.h"
  #include <mntent.h>
--#include <sys/swap.h>
+-#ifndef __BIONIC__
+-# include <sys/swap.h>
+-#endif
  
- #if ENABLE_FEATURE_MOUNT_LABEL
+ #if ENABLE_FEATURE_SWAPONOFF_LABEL
  # include "volume_id.h"
-@@ -43,9 +43,9 @@ static int swap_enable_disable(char *dev
- #endif
+@@ -156,7 +154,7 @@
+ 	resolve_mount_spec(&device);
  
- 	if (applet_name[5] == 'n')
--		status = swapon(device, g_flags);
-+		status = xswapon(device, g_flags);
- 	else
--		status = swapoff(device);
-+		status = xswapoff(device);
- 
- 	if (status != 0) {
- 		bb_simple_perror_msg(device);
+ 	if (do_swapoff) {
+-		err = swapoff(device);
++		err = xswapoff(device);
+ 		/* Don't complain on OPT_ALL if not a swap device or if it doesn't exist */
+ 		quiet = (OPT_ALL && (errno == EINVAL || errno == ENOENT));
+ 	} else {
+@@ -170,7 +168,7 @@
+ 					return 1;
+ 				}
+ 			}
+-			err = swapon(device, g_flags);
++			err = xswapon(device, g_flags);
+ 			/* Don't complain on swapon -a if device is already in use */
+ 			quiet = (OPT_ALL && errno == EBUSY);
+ 		}
 --- a/util-linux/xmount.c
 +++ b/util-linux/xmount.c
-@@ -67,4 +67,14 @@ int FAST_FUNC xumount(const char *target
+@@ -67,4 +67,14 @@
  	return unmount(target, flags);
  }
  
@@ -95,15 +77,15 @@ Signed-off-by: Jeremie Koenig <jk@jk.fr.eu.org>
  /* Make sure we have all the new mount flags we actually try to use
   * (grab more as needed from util-linux's mount/mount_constants.h). */
  # ifndef MS_DIRSYNC
-@@ -56,6 +57,7 @@
+@@ -59,6 +60,7 @@
  
  #elif defined(__FreeBSD_kernel__)
  # include <sys/mount.h>
 +# include <sys/swap.h>
  # define MS_NOSUID      MNT_NOSUID
- # define MS_NODEV       MNT_NODEV
- # define MS_NOEXEC      MNT_NOEXEC
-@@ -82,16 +84,18 @@
+ # ifdef MNT_NODEV
+ #  define MS_NODEV	MNT_NODEV
+@@ -90,16 +92,18 @@
  #endif
  
  /*

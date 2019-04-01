@@ -6,6 +6,22 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+//config:config FSYNC
+//config:	bool "fsync (3.6 kb)"
+//config:	default y
+//config:	help
+//config:	fsync is used to flush file-related cached blocks to disk.
+
+//applet:IF_FSYNC(APPLET_NOFORK(fsync, fsync, BB_DIR_BIN, BB_SUID_DROP, fsync))
+
+//kbuild:lib-$(CONFIG_FSYNC) += fsync.o
+
+//usage:#define fsync_trivial_usage
+//usage:       "[-d] FILE..."
+//usage:#define fsync_full_usage "\n\n"
+//usage:       "Write files' buffered blocks to disk\n"
+//usage:     "\n	-d	Avoid syncing metadata"
+
 #include "libbb.h"
 #ifndef O_NOATIME
 # define O_NOATIME 0

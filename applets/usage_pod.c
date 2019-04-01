@@ -31,8 +31,8 @@
 #include "usage.h"
 #define MAKE_USAGE(aname, usage) { aname, usage },
 static struct usage_data {
-        const char *aname;
-        const char *usage;
+	const char *aname;
+	const char *usage;
 } usage_array[] = {
 #include "applets.h"
 };
@@ -90,6 +90,8 @@ int main(void)
 				printf("%s\n\n", usage_array[i].aname);
 		}
 	}
+	printf("=back\n\n");
+
 	return 0;
 }
 

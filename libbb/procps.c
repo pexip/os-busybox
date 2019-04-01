@@ -8,17 +8,16 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-
 #include "libbb.h"
 
 
-typedef struct unsigned_to_name_map_t {
-	long id;
+typedef struct id_to_name_map_t {
+	uid_t id;
 	char name[USERNAME_MAX_SIZE];
-} unsigned_to_name_map_t;
+} id_to_name_map_t;
 
 typedef struct cache_t {
-	unsigned_to_name_map_t *cache;
+	id_to_name_map_t *cache;
 	int size;
 } cache_t;
 
@@ -39,7 +38,7 @@ void FAST_FUNC clear_username_cache(void)
 #if 0 /* more generic, but we don't need that yet */
 /* Returns -N-1 if not found. */
 /* cp->cache[N] is allocated and must be filled in this case */
-static int get_cached(cache_t *cp, unsigned id)
+static int get_cached(cache_t *cp, uid_t id)
 {
 	int i;
 	for (i = 0; i < cp->size; i++)
@@ -52,8 +51,8 @@ static int get_cached(cache_t *cp, unsigned id)
 }
 #endif
 
-static char* get_cached(cache_t *cp, long id,
-			char* FAST_FUNC x2x_utoa(long id))
+static char* get_cached(cache_t *cp, uid_t id,
+			char* FAST_FUNC x2x_utoa(uid_t id))
 {
 	int i;
 	for (i = 0; i < cp->size; i++)
@@ -127,10 +126,11 @@ static unsigned long fast_strtoul_16(char **endptr)
 	char *str = *endptr;
 	unsigned long n = 0;
 
-	while ((c = *str++) != ' ') {
+	/* Need to stop on both ' ' and '\n' */
+	while ((c = *str++) > ' ') {
 		c = ((c|0x20) - '0');
 		if (c > 9)
-			// c = c + '0' - 'a' + 10:
+			/* c = c + '0' - 'a' + 10: */
 			c = c - ('a' - '0' - 10);
 		n = n*16 + c;
 	}
@@ -143,11 +143,12 @@ static unsigned long fast_strtoul_16(char **endptr)
 /* We cut a lot of corners here for speed */
 static unsigned long fast_strtoul_10(char **endptr)
 {
-	char c;
+	unsigned char c;
 	char *str = *endptr;
 	unsigned long n = *str - '0';
 
-	while ((c = *++str) != ' ')
+	/* Need to stop on both ' ' and '\n' */
+	while ((c = *++str) > ' ')
 		n = n*10 + (c - '0');
 
 	*endptr = str + 1; /* We skip trailing space! */
@@ -178,7 +179,7 @@ static char *skip_fields(char *str, int count)
 
 #if ENABLE_FEATURE_TOPMEM || ENABLE_PMAP
 int FAST_FUNC procps_read_smaps(pid_t pid, struct smaprec *total,
-		      void (*cb)(struct smaprec *, void *), void *data)
+		void (*cb)(struct smaprec *, void *), void *data)
 {
 	FILE *file;
 	struct smaprec currec;
@@ -198,16 +199,16 @@ int FAST_FUNC procps_read_smaps(pid_t pid, struct smaprec *total,
 	memset(&currec, 0, sizeof(currec));
 	while (fgets(buf, PROCPS_BUFSIZE, file)) {
 		// Each mapping datum has this form:
-		// f7d29000-f7d39000 rw-s ADR M:m OFS FILE
+		// f7d29000-f7d39000 rw-s FILEOFS M:m INODE FILENAME
 		// Size:                nnn kB
 		// Rss:                 nnn kB
 		// .....
 
-		char *tp = buf, *p;
+		char *tp, *p;
 
 #define SCAN(S, X) \
-		if (strncmp(tp, S, sizeof(S)-1) == 0) {              \
-			tp = skip_whitespace(tp + sizeof(S)-1);      \
+		if ((tp = is_prefixed_with(buf, S)) != NULL) {       \
+			tp = skip_whitespace(tp);                    \
 			total->X += currec.X = fast_strtoul_10(&tp); \
 			continue;                                    \
 		}
@@ -223,7 +224,7 @@ int FAST_FUNC procps_read_smaps(pid_t pid, struct smaprec *total,
 		tp = strchr(buf, '-');
 		if (tp) {
 			// We reached next mapping - the line of this form:
-			// f7d29000-f7d39000 rw-s ADR M:m OFS FILE
+			// f7d29000-f7d39000 rw-s FILEOFS M:m INODE FILENAME
 
 			if (cb) {
 				/* If we have a previous record, there's nothing more
@@ -242,10 +243,10 @@ int FAST_FUNC procps_read_smaps(pid_t pid, struct smaprec *total,
 
 			strncpy(currec.smap_mode, tp, sizeof(currec.smap_mode)-1);
 
-			// skipping "rw-s ADR M:m OFS "
+			// skipping "rw-s FILEOFS M:m INODE "
 			tp = skip_whitespace(skip_fields(tp, 4));
 			// filter out /dev/something (something != zero)
-			if (strncmp(tp, "/dev/", 5) != 0 || strcmp(tp, "/dev/zero\n") == 0) {
+			if (!is_prefixed_with(tp, "/dev/") || strcmp(tp, "/dev/zero\n") == 0) {
 				if (currec.smap_mode[1] == 'w') {
 					currec.mapped_rw = currec.smap_size;
 					total->mapped_rw += currec.smap_size;
@@ -281,24 +282,22 @@ int FAST_FUNC procps_read_smaps(pid_t pid, struct smaprec *total,
 }
 #endif
 
-void BUG_comm_size(void);
 procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 {
-	struct dirent *entry;
-	char buf[PROCPS_BUFSIZE];
-	char filename[sizeof("/proc//cmdline") + sizeof(int)*3];
-	char *filename_tail;
-	long tasknice;
-	unsigned pid;
-	int n;
-	struct stat sb;
-
 	if (!sp)
 		sp = alloc_procps_scan();
 
 	for (;;) {
+		struct dirent *entry;
+		char buf[PROCPS_BUFSIZE];
+		long tasknice;
+		unsigned pid;
+		int n;
+		char filename[sizeof("/proc/%u/task/%u/cmdline") + sizeof(int)*3 * 2];
+		char *filename_tail;
+
 #if ENABLE_FEATURE_SHOW_THREADS
-		if ((flags & PSSCAN_TASKS) && sp->task_dir) {
+		if (sp->task_dir) {
 			entry = readdir(sp->task_dir);
 			if (entry)
 				goto got_entry;
@@ -320,9 +319,10 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 			/* We found another /proc/PID. Do not use it,
 			 * there will be /proc/PID/task/PID (same PID!),
 			 * so just go ahead and dive into /proc/PID/task. */
-			char task_dir[sizeof("/proc/%u/task") + sizeof(int)*3];
-			sprintf(task_dir, "/proc/%u/task", pid);
-			sp->task_dir = xopendir(task_dir);
+			sprintf(filename, "/proc/%u/task", pid);
+			/* Note: if opendir fails, we just go to next /proc/XXX */
+			sp->task_dir = opendir(filename);
+			sp->main_thread_pid = pid;
 			continue;
 		}
 #endif
@@ -345,9 +345,15 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 		}
 #endif
 
-		filename_tail = filename + sprintf(filename, "/proc/%u/", pid);
+#if ENABLE_FEATURE_SHOW_THREADS
+		if (sp->task_dir)
+			filename_tail = filename + sprintf(filename, "/proc/%u/task/%u/", sp->main_thread_pid, pid);
+		else
+#endif
+			filename_tail = filename + sprintf(filename, "/proc/%u/", pid);
 
 		if (flags & PSSCAN_UIDGID) {
+			struct stat sb;
 			if (stat(filename, &sb))
 				continue; /* process probably exited */
 			/* Effective UID/GID, not real */
@@ -355,7 +361,15 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 			sp->gid = sb.st_gid;
 		}
 
-		if (flags & PSSCAN_STAT) {
+		/* These are all retrieved from proc/NN/stat in one go: */
+		if (flags & (PSSCAN_PPID | PSSCAN_PGID | PSSCAN_SID
+			| PSSCAN_COMM | PSSCAN_STATE
+			| PSSCAN_VSZ | PSSCAN_RSS
+			| PSSCAN_STIME | PSSCAN_UTIME | PSSCAN_START_TIME
+			| PSSCAN_TTY | PSSCAN_NICE
+			| PSSCAN_CPU)
+		) {
+			int s_idx;
 			char *cp, *comm1;
 			int tty;
 #if !ENABLE_FEATURE_FAST_TOP
@@ -370,8 +384,7 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 			/*if (!cp || cp[1] != ' ')
 				continue;*/
 			cp[0] = '\0';
-			if (sizeof(sp->comm) < 16)
-				BUG_comm_size();
+			BUILD_BUG_ON(sizeof(sp->comm) < 16);
 			comm1 = strchr(buf, '(');
 			/*if (comm1)*/
 				safe_strncpy(sp->comm, comm1 + 1, sizeof(sp->comm));
@@ -410,7 +423,7 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 			if (n < 11)
 				continue; /* bogus data, get next /proc/XXX */
 # if ENABLE_FEATURE_TOP_SMP_PROCESS
-			if (n < 11+15)
+			if (n == 11)
 				sp->last_seen_on_cpu = 0;
 # endif
 
@@ -455,17 +468,20 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 #if ENABLE_FEATURE_PS_ADDITIONAL_COLUMNS
 			sp->niceness = tasknice;
 #endif
-
-			if (sp->vsz == 0 && sp->state[0] != 'Z')
+			sp->state[1] = ' ';
+			sp->state[2] = ' ';
+			s_idx = 1;
+			if (sp->vsz == 0 && sp->state[0] != 'Z') {
+				/* not sure what the purpose of this flag */
 				sp->state[1] = 'W';
-			else
-				sp->state[1] = ' ';
-			if (tasknice < 0)
-				sp->state[2] = '<';
-			else if (tasknice) /* > 0 */
-				sp->state[2] = 'N';
-			else
-				sp->state[2] = ' ';
+				s_idx = 2;
+			}
+			if (tasknice != 0) {
+				if (tasknice < 0)
+					sp->state[s_idx] = '<';
+				else /* > 0 */
+					sp->state[s_idx] = 'N';
+			}
 		}
 
 #if ENABLE_FEATURE_TOPMEM
@@ -482,8 +498,8 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 				while (fgets(buf, sizeof(buf), file)) {
 					char *tp;
 #define SCAN_TWO(str, name, statement) \
-	if (strncmp(buf, str, sizeof(str)-1) == 0) { \
-		tp = skip_whitespace(buf + sizeof(str)-1); \
+	if ((tp = is_prefixed_with(buf, str)) != NULL) { \
+		tp = skip_whitespace(tp); \
 		sscanf(tp, "%u", &sp->name); \
 		statement; \
 	}
@@ -539,8 +555,7 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 				break;
 			if (flags & PSSCAN_ARGVN) {
 				sp->argv_len = n;
-				sp->argv0 = xmalloc(n + 1);
-				memcpy(sp->argv0, buf, n + 1);
+				sp->argv0 = xmemdup(buf, n + 1);
 				/* sp->argv0[n] = '\0'; - buf has it */
 			} else {
 				sp->argv_len = 0;
@@ -557,20 +572,52 @@ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
 void FAST_FUNC read_cmdline(char *buf, int col, unsigned pid, const char *comm)
 {
 	int sz;
-	char filename[sizeof("/proc//cmdline") + sizeof(int)*3];
+	char filename[sizeof("/proc/%u/cmdline") + sizeof(int)*3];
 
 	sprintf(filename, "/proc/%u/cmdline", pid);
 	sz = open_read_close(filename, buf, col - 1);
 	if (sz > 0) {
+		const char *base;
+		int comm_len;
+
 		buf[sz] = '\0';
 		while (--sz >= 0 && buf[sz] == '\0')
 			continue;
-		do {
+		/* Prevent basename("process foo/bar") = "bar" */
+		strchrnul(buf, ' ')[0] = '\0';
+		base = bb_basename(buf); /* before we replace argv0's NUL with space */
+		while (sz >= 0) {
 			if ((unsigned char)(buf[sz]) < ' ')
 				buf[sz] = ' ';
-		} while (--sz >= 0);
+			sz--;
+		}
+		if (base[0] == '-') /* "-sh" (login shell)? */
+			base++;
+
+		/* If comm differs from argv0, prepend "{comm} ".
+		 * It allows to see thread names set by prctl(PR_SET_NAME).
+		 */
+		if (!comm)
+			return;
+		comm_len = strlen(comm);
+		/* Why compare up to comm_len, not COMM_LEN-1?
+		 * Well, some processes rewrite argv, and use _spaces_ there
+		 * while rewriting. (KDE is observed to do it).
+		 * I prefer to still treat argv0 "process foo bar"
+		 * as 'equal' to comm "process".
+		 */
+		if (strncmp(base, comm, comm_len) != 0) {
+			comm_len += 3;
+			if (col > comm_len)
+				memmove(buf + comm_len, buf, col - comm_len);
+			snprintf(buf, col, "{%s}", comm);
+			if (col <= comm_len)
+				return;
+			buf[comm_len - 1] = ' ';
+			buf[col - 1] = '\0';
+		}
 	} else {
-		snprintf(buf, col, "[%s]", comm);
+		snprintf(buf, col, "[%s]", comm ? comm : "?");
 	}
 }
 

@@ -6,9 +6,28 @@
  *
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
+//config:config SEQ
+//config:	bool "seq (3.8 kb)"
+//config:	default y
+//config:	help
+//config:	print a sequence of numbers
+
+//applet:IF_SEQ(APPLET_NOEXEC(seq, seq, BB_DIR_USR_BIN, BB_SUID_DROP, seq))
+/* was NOFORK, but then "seq 1 999999999" can't be ^C'ed if run by hush */
+
+//kbuild:lib-$(CONFIG_SEQ) += seq.o
+
+//usage:#define seq_trivial_usage
+//usage:       "[-w] [-s SEP] [FIRST [INC]] LAST"
+//usage:#define seq_full_usage "\n\n"
+//usage:       "Print numbers from FIRST to LAST, in steps of INC.\n"
+//usage:       "FIRST, INC default to 1.\n"
+//usage:     "\n	-w	Pad to last with leading zeros"
+//usage:     "\n	-s SEP	String separator"
+
 #include "libbb.h"
 
-/* This is a NOFORK applet. Be very careful! */
+/* This is a NOEXEC applet. Be very careful! */
 
 int seq_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int seq_main(int argc, char **argv)

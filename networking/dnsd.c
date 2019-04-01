@@ -16,6 +16,30 @@
  * Some bugfix and minor changes was applied by Roberto A. Foglietta who made
  * the first porting of oao' scdns to busybox also.
  */
+//config:config DNSD
+//config:	bool "dnsd (9.8 kb)"
+//config:	default y
+//config:	help
+//config:	Small and static DNS server daemon.
+
+//applet:IF_DNSD(APPLET(dnsd, BB_DIR_USR_SBIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_DNSD) += dnsd.o
+
+//usage:#define dnsd_trivial_usage
+//usage:       "[-dvs] [-c CONFFILE] [-t TTL_SEC] [-p PORT] [-i ADDR]"
+//usage:#define dnsd_full_usage "\n\n"
+//usage:       "Small static DNS server daemon\n"
+//usage:     "\n	-c FILE	Config file"
+//usage:     "\n	-t SEC	TTL"
+//usage:     "\n	-p PORT	Listen on PORT"
+//usage:     "\n	-i ADDR	Listen on ADDR"
+//usage:     "\n	-d	Daemonize"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-s	Send successful replies only. Use this if you want"
+//usage:     "\n		to use /etc/resolv.conf with two nameserver lines:"
+//usage:     "\n			nameserver DNSD_SERVER"
+//usage:     "\n			nameserver NORMAL_DNS_SERVER"
 
 #include "libbb.h"
 #include <syslog.h>
@@ -179,7 +203,7 @@ static char *table_lookup(struct dns_entry *d,
 		if ((len != 1 || d->name[1] != '*')
 		/* we assume (do not check) that query_string
 		 * ends in ".in-addr.arpa" */
-		 && strncmp(d->rip, query_string, strlen(d->rip)) == 0
+		 && is_prefixed_with(query_string, d->rip)
 		) {
 #if DEBUG
 			fprintf(stderr, "Found name:%s\n", d->name);
@@ -336,7 +360,7 @@ RDATA   a variable length string of octets that describes the resource.
 
 In order to reduce the size of messages, domain names coan be compressed.
 An entire domain name or a list of labels at the end of a domain name
-is replaced with a pointer to a prior occurance of the same name.
+is replaced with a pointer to a prior occurrence of the same name.
 
 The pointer takes the form of a two octet sequence:
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+

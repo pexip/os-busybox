@@ -6,12 +6,40 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-/* no options, no getopt */
+//config:config RESIZE
+//config:	bool "resize (903 bytes)"
+//config:	default y
+//config:	help
+//config:	This program is used to (re)set the width and height of your current
+//config:	terminal.
+//config:
+//config:config FEATURE_RESIZE_PRINT
+//config:	bool "Print environment variables"
+//config:	default y
+//config:	depends on RESIZE
+//config:	help
+//config:	Prints the newly set size (number of columns and rows) of
+//config:	the terminal.
+//config:	E.g.:
+//config:	COLUMNS=80;LINES=44;export COLUMNS LINES;
+
+//applet:IF_RESIZE(APPLET_NOEXEC(resize, resize, BB_DIR_USR_BIN, BB_SUID_DROP, resize))
+/* bb_common_bufsiz1 usage here is safe wrt NOEXEC: not expecting it to be zeroed. */
+
+//kbuild:lib-$(CONFIG_RESIZE) += resize.o
+
+//usage:#define resize_trivial_usage
+//usage:       ""
+//usage:#define resize_full_usage "\n\n"
+//usage:       "Resize the screen"
+
 #include "libbb.h"
+#include "common_bufsiz.h"
 
 #define ESC "\033"
 
-#define old_termios_p ((struct termios*)&bb_common_bufsiz1)
+#define old_termios_p ((struct termios*)bb_common_bufsiz1)
+#define INIT_G() do { setup_common_bufsiz(); } while (0)
 
 static void
 onintr(int sig UNUSED_PARAM)
@@ -27,6 +55,8 @@ int resize_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	struct winsize w = { 0, 0, 0, 0 };
 	int ret;
 
+	INIT_G();
+
 	/* We use _stderr_ in order to make resize usable
 	 * in shell backticks (those redirect stdout away from tty).
 	 * NB: other versions of resize open "/dev/tty"
@@ -34,6 +64,7 @@ int resize_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	 */
 
 	tcgetattr(STDERR_FILENO, old_termios_p); /* fiddle echo */
+//TODO: die if the above fails?
 	memcpy(&new, old_termios_p, sizeof(new));
 	new.c_cflag |= (CLOCAL | CREAD);
 	new.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
@@ -53,6 +84,7 @@ int resize_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	 */
 	fprintf(stderr, ESC"7" ESC"[r" ESC"[999;999H" ESC"[6n");
 	alarm(3); /* Just in case terminal won't answer */
+//BUG: death by signal won't restore termios
 	scanf(ESC"[%hu;%huR", &w.ws_row, &w.ws_col);
 	fprintf(stderr, ESC"8");
 

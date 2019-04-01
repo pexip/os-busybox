@@ -11,25 +11,50 @@
  *
  * initially busyboxified by Bernhard Reutner-Fischer
  */
+//config:config RUNLEVEL
+//config:	bool "runlevel (559 bytes)"
+//config:	default y
+//config:	depends on FEATURE_UTMP
+//config:	help
+//config:	Find the current and previous system runlevel.
+//config:
+//config:	This applet uses utmp but does not rely on busybox supporing
+//config:	utmp on purpose. It is used by e.g. emdebian via /etc/init.d/rc.
+
+//applet:IF_RUNLEVEL(APPLET_NOEXEC(runlevel, runlevel, BB_DIR_SBIN, BB_SUID_DROP, runlevel))
+
+//kbuild:lib-$(CONFIG_RUNLEVEL) += runlevel.o
+
+//usage:#define runlevel_trivial_usage
+//usage:       "[FILE]"
+//usage:#define runlevel_full_usage "\n\n"
+//usage:       "Find the current and previous system runlevel\n"
+//usage:       "\n"
+//usage:       "If no utmp FILE exists or if no runlevel record can be found,\n"
+//usage:       "print \"unknown\""
+//usage:
+//usage:#define runlevel_example_usage
+//usage:       "$ runlevel /var/run/utmp\n"
+//usage:       "N 2"
+
 #include "libbb.h"
-#include <utmp.h>
 
 int runlevel_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int runlevel_main(int argc UNUSED_PARAM, char **argv)
 {
-	struct utmp *ut;
+	struct utmpx *ut;
 	char prev;
 
-	if (argv[1]) utmpname(argv[1]);
+	if (argv[1]) utmpxname(argv[1]);
 
-	setutent();
-	while ((ut = getutent()) != NULL) {
+	setutxent();
+	while ((ut = getutxent()) != NULL) {
 		if (ut->ut_type == RUN_LVL) {
 			prev = ut->ut_pid / 256;
 			if (prev == 0) prev = 'N';
 			printf("%c %c\n", prev, ut->ut_pid % 256);
 			if (ENABLE_FEATURE_CLEAN_UP)
-				endutent();
+				endutxent();
 			return 0;
 		}
 	}
@@ -37,6 +62,6 @@ int runlevel_main(int argc UNUSED_PARAM, char **argv)
 	puts("unknown");
 
 	if (ENABLE_FEATURE_CLEAN_UP)
-		endutent();
+		endutxent();
 	return 1;
 }

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Note: was using sed OPTS CMD -- FILES
+# but users complain that many sed implementations
+# are misinterpreting --.
+
 test $# -ge 2 || { echo "Syntax: $0 SRCTREE OBJTREE"; exit 1; }
 
 # cd to objtree
@@ -13,23 +17,47 @@ status() { printf '  %-8s%s\n' "$1" "$2"; }
 gen() { status "GEN" "$@"; }
 chk() { status "CHK" "$@"; }
 
+# scripts in the 'embed' directory are treated as fake applets
+custom_scripts()
+{
+	custom_loc="$1"
+	if [ -d "$custom_loc" ]
+	then
+		for i in $(cd "$custom_loc"; ls * 2>/dev/null)
+		do
+			printf "IF_FEATURE_SH_EMBEDDED_SCRIPTS(APPLET_SCRIPTED(%s, scripted, BB_DIR_USR_BIN, BB_SUID_DROP, scripted))\n" $i;
+		done
+	fi
+}
+
 generate()
 {
-	local src="$1" dst="$2" header="$3" insert="$4"
+	# NB: data to be inserted at INSERT line is coming on stdin
+	src="$1"
+	dst="$2"
+	header="$3"
+	loc="$4"
 	#chk "${dst}"
-	(
+	{
+		# Need to use printf: different shells have inconsistent
+		# rules re handling of "\n" in echo params.
 		printf "%s\n" "${header}"
-		if grep -qs '^INSERT$' "${src}"; then
-			sed -n '1,/^INSERT$/p' "${src}"
-			printf "%s\n" "${insert}"
-			sed -n '/^INSERT$/,$p' "${src}"
-		else
-			if [ -n "${insert}" ]; then
-				printf "%s\n" "ERROR: INSERT line missing in: ${src}" 1>&2
-			fi
-			cat "${src}"
+		# print everything up to INSERT line
+		sed -n '/^INSERT$/ q; p' "${src}"
+		# copy stdin to stdout
+		cat
+		if [ -n "$loc" ]
+		then
+			custom_scripts "$loc"
 		fi
-	) | sed '/^INSERT$/d' > "${dst}.tmp"
+		# print everything after INSERT line
+		sed -n '/^INSERT$/ {
+		:l
+		    n
+		    p
+		    bl
+		}' "${src}"
+	} >"${dst}.tmp"
 	if ! cmp -s "${dst}" "${dst}.tmp"; then
 		gen "${dst}"
 		mv "${dst}.tmp" "${dst}"
@@ -39,27 +67,33 @@ generate()
 }
 
 # (Re)generate include/applets.h
-s=`sed -n 's@^//applet:@@p' -- "$srctree"/*/*.c "$srctree"/*/*/*.c`
-generate \
+sed -n 's@^//applet:@@p' "$srctree"/*/*.c "$srctree"/*/*/*.c \
+| generate \
 	"$srctree/include/applets.src.h" \
 	"include/applets.h" \
 	"/* DO NOT EDIT. This file is generated from applets.src.h */" \
-	"${s}"
+	"$srctree/embed"
 
 # (Re)generate include/usage.h
 # We add line continuation backslash after each line,
 # and insert empty line before each line which doesn't start
 # with space or tab
-# (note: we need to use \\\\ because of ``)
-s=`sed -n -e 's@^//usage:\([ \t].*\)$@\1 \\\\@p' -e 's@^//usage:\([^ \t].*\)$@\n\1 \\\\@p' -- "$srctree"/*/*.c "$srctree"/*/*/*.c`
-generate \
+TAB="$(printf '\tX')"
+TAB="${TAB%X}"
+LF="$(printf '\nX')"
+LF="${LF%X}"
+sed -n -e 's@^//usage:\([ '"$TAB"'].*\)$@\1 \\@p' \
+       -e 's@^//usage:\([^ '"$TAB"'].*\)$@\'"$LF"'\1 \\@p' \
+	"$srctree"/*/*.c "$srctree"/*/*/*.c \
+| generate \
 	"$srctree/include/usage.src.h" \
 	"include/usage.h" \
-	"/* DO NOT EDIT. This file is generated from usage.src.h */" \
-	"${s}"
+	"/* DO NOT EDIT. This file is generated from usage.src.h */"
 
 # (Re)generate */Kbuild and */Config.in
-{ cd -- "$srctree" && find . -type d; } | while read -r d; do
+# We skip .dotdirs - makes git/svn/etc users happier
+{ cd -- "$srctree" && find . -type d ! '(' -name '.?*' -prune ')'; } \
+| while read -r d; do
 	d="${d#./}"
 
 	src="$srctree/$d/Kbuild.src"
@@ -67,11 +101,10 @@ generate \
 	if test -f "$src"; then
 		mkdir -p -- "$d" 2>/dev/null
 
-		s=`sed -n 's@^//kbuild:@@p' -- "$srctree/$d"/*.c`
-		generate \
+		sed -n 's@^//kbuild:@@p' "$srctree/$d"/*.c \
+		| generate \
 			"${src}" "${dst}" \
-			"# DO NOT EDIT. This file is generated from Kbuild.src" \
-			"${s}"
+			"# DO NOT EDIT. This file is generated from Kbuild.src"
 	fi
 
 	src="$srctree/$d/Config.src"
@@ -79,11 +112,10 @@ generate \
 	if test -f "$src"; then
 		mkdir -p -- "$d" 2>/dev/null
 
-		s=`sed -n 's@^//config:@@p' -- "$srctree/$d"/*.c`
-		generate \
+		sed -n 's@^//config:@@p' "$srctree/$d"/*.c \
+		| generate \
 			"${src}" "${dst}" \
-			"# DO NOT EDIT. This file is generated from Config.src" \
-			"${s}"
+			"# DO NOT EDIT. This file is generated from Config.src"
 	fi
 done
 

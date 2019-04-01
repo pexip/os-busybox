@@ -6,11 +6,6 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-
-/* BB_AUDIT SUSv3 compliant (need fancy for -c) */
-/* BB_AUDIT GNU compatible -c, -q, and -v options in 'fancy' configuration. */
-/* http://www.opengroup.org/onlinepubs/007904975/utilities/tail.html */
-
 /* Mar 16, 2003      Manuel Novoa III   (mjn3@codepoet.org)
  *
  * Pretty much rewritten to fix numerous bugs and reduce realloc() calls.
@@ -23,20 +18,64 @@
  * 6) no check for lseek error
  * 7) lseek attempted when count==0 even if arg was +0 (from top)
  */
+//config:config TAIL
+//config:	bool "tail (6.8 kb)"
+//config:	default y
+//config:	help
+//config:	tail is used to print the last specified number of lines
+//config:	from files.
+//config:
+//config:config FEATURE_FANCY_TAIL
+//config:	bool "Enable -q, -s, -v, and -F options"
+//config:	default y
+//config:	depends on TAIL
+//config:	help
+//config:	These options are provided by GNU tail, but
+//config:	are not specified in the SUSv3 standard:
+//config:		-q      Never output headers giving file names
+//config:		-s SEC  Wait SEC seconds between reads with -f
+//config:		-v      Always output headers giving file names
+//config:		-F      Same as -f, but keep retrying
+
+//applet:IF_TAIL(APPLET(tail, BB_DIR_USR_BIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_TAIL) += tail.o
+
+/* BB_AUDIT SUSv3 compliant (need fancy for -c) */
+/* BB_AUDIT GNU compatible -c, -q, and -v options in 'fancy' configuration. */
+/* http://www.opengroup.org/onlinepubs/007904975/utilities/tail.html */
+
+//usage:#define tail_trivial_usage
+//usage:       "[OPTIONS] [FILE]..."
+//usage:#define tail_full_usage "\n\n"
+//usage:       "Print last 10 lines of each FILE (or stdin) to stdout.\n"
+//usage:       "With more than one FILE, precede each with a filename header.\n"
+//usage:     "\n	-f		Print data as file grows"
+//usage:     "\n	-c [+]N[kbm]	Print last N bytes"
+//usage:     "\n	-n N[kbm]	Print last N lines"
+//usage:     "\n	-n +N[kbm]	Start on Nth line and print the rest"
+//usage:	IF_FEATURE_FANCY_TAIL(
+//usage:     "\n	-q		Never print headers"
+//usage:     "\n	-s SECONDS	Wait SECONDS between reads with -f"
+//usage:     "\n	-v		Always print headers"
+//usage:     "\n	-F		Same as -f, but keep retrying"
+//usage:     "\n"
+//usage:     "\nN may be suffixed by k (x1024), b (x512), or m (x1024^2)."
+//usage:	)
+//usage:
+//usage:#define tail_example_usage
+//usage:       "$ tail -n 1 /etc/resolv.conf\n"
+//usage:       "nameserver 10.0.0.1\n"
 
 #include "libbb.h"
-
-static const struct suffix_mult tail_suffixes[] = {
-	{ "b", 512 },
-	{ "k", 1024 },
-	{ "m", 1024*1024 },
-	{ "", 0 }
-};
+#include "common_bufsiz.h"
 
 struct globals {
-	bool status;
+	bool from_top;
+	bool exitcode;
 } FIX_ALIASING;
-#define G (*(struct globals*)&bb_common_bufsiz1)
+#define G (*(struct globals*)bb_common_bufsiz1)
+#define INIT_G() do { setup_common_bufsiz(); } while (0)
 
 static void tail_xprint_header(const char *fmt, const char *filename)
 {
@@ -47,20 +86,11 @@ static void tail_xprint_header(const char *fmt, const char *filename)
 static ssize_t tail_read(int fd, char *buf, size_t count)
 {
 	ssize_t r;
-	off_t current;
-	struct stat sbuf;
-
-	/* /proc files report zero st_size, don't lseek them. */
-	if (fstat(fd, &sbuf) == 0 && sbuf.st_size > 0) {
-		current = lseek(fd, 0, SEEK_CUR);
-		if (sbuf.st_size < current)
-			xlseek(fd, 0, SEEK_SET);
-	}
 
 	r = full_read(fd, buf, count);
 	if (r < 0) {
 		bb_perror_msg(bb_msg_read_error);
-		G.status = EXIT_FAILURE;
+		G.exitcode = EXIT_FAILURE;
 	}
 
 	return r;
@@ -74,9 +104,9 @@ static unsigned eat_num(const char *p)
 		p++;
 	else if (*p == '+') {
 		p++;
-		G.status = 1; /* mark that we saw "+" */
+		G.from_top = 1;
 	}
-	return xatou_sfx(p, tail_suffixes);
+	return xatou_sfx(p, bkm_suffixes);
 }
 
 int tail_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -84,7 +114,6 @@ int tail_main(int argc, char **argv)
 {
 	unsigned count = 10;
 	unsigned sleep_period = 1;
-	bool from_top;
 	const char *str_c, *str_n;
 
 	char *tailbuf;
@@ -95,6 +124,9 @@ int tail_main(int argc, char **argv)
 
 	int *fds;
 	const char *fmt;
+	int prev_fd;
+
+	INIT_G();
 
 #if ENABLE_INCLUDE_SUSv2 || ENABLE_FEATURE_FANCY_TAIL
 	/* Allow legacy syntax of an initial numeric option without -n. */
@@ -108,9 +140,11 @@ int tail_main(int argc, char **argv)
 #endif
 
 	/* -s NUM, -F imlies -f */
-	IF_FEATURE_FANCY_TAIL(opt_complementary = "s+:Ff";)
-	opt = getopt32(argv, "fc:n:" IF_FEATURE_FANCY_TAIL("qs:vF"),
-			&str_c, &str_n IF_FEATURE_FANCY_TAIL(,&sleep_period));
+	opt = getopt32(argv, IF_FEATURE_FANCY_TAIL("^")
+			"fc:n:"IF_FEATURE_FANCY_TAIL("qs:+vF")
+			IF_FEATURE_FANCY_TAIL("\0" "Ff"),
+			&str_c, &str_n IF_FEATURE_FANCY_TAIL(,&sleep_period)
+	);
 #define FOLLOW (opt & 0x1)
 #define COUNT_BYTES (opt & 0x2)
 	//if (opt & 0x1) // -f
@@ -127,8 +161,6 @@ int tail_main(int argc, char **argv)
 #endif
 	argc -= optind;
 	argv += optind;
-	from_top = G.status; /* 1 if there was "-c +N" or "-n +N" */
-	G.status = EXIT_SUCCESS;
 
 	/* open all the files */
 	fds = xmalloc(sizeof(fds[0]) * (argc + 1));
@@ -146,7 +178,7 @@ int tail_main(int argc, char **argv)
 	do {
 		int fd = open_or_warn_stdin(argv[i]);
 		if (fd < 0 && !FOLLOW_RETRY) {
-			G.status = EXIT_FAILURE;
+			G.exitcode = EXIT_FAILURE;
 			continue;
 		}
 		fds[nfiles] = fd;
@@ -158,15 +190,19 @@ int tail_main(int argc, char **argv)
 
 	/* prepare the buffer */
 	tailbufsize = BUFSIZ;
-	if (!from_top && COUNT_BYTES) {
+	if (!G.from_top && COUNT_BYTES) {
 		if (tailbufsize < count + BUFSIZ) {
 			tailbufsize = count + BUFSIZ;
 		}
 	}
-	tailbuf = xmalloc(tailbufsize);
+	/* tail -c1024m REGULAR_FILE doesn't really need 1G mem block.
+	 * (In fact, it doesn't need ANY memory). So delay allocation.
+	 */
+	tailbuf = NULL;
 
 	/* tail the files */
-	fmt = header_fmt_str + 1; /* skip header leading newline on first output */
+
+	fmt = header_fmt_str + 1; /* skip leading newline in the header on the first output */
 	i = 0;
 	do {
 		char *buf;
@@ -177,14 +213,14 @@ int tail_main(int argc, char **argv)
 		int fd = fds[i];
 
 		if (ENABLE_FEATURE_FANCY_TAIL && fd < 0)
-			continue; /* may happen with -E */
+			continue; /* may happen with -F */
 
 		if (nfiles > header_threshhold) {
 			tail_xprint_header(fmt, argv[i]);
 			fmt = header_fmt_str;
 		}
 
-		if (!from_top) {
+		if (!G.from_top) {
 			off_t current = lseek(fd, 0, SEEK_END);
 			if (current > 0) {
 				unsigned off;
@@ -217,20 +253,23 @@ int tail_main(int argc, char **argv)
 			}
 		}
 
+		if (!tailbuf)
+			tailbuf = xmalloc(tailbufsize);
+
 		buf = tailbuf;
 		taillen = 0;
 		/* "We saw 1st line/byte".
 		 * Used only by +N code ("start from Nth", 1-based): */
 		seen = 1;
 		newlines_seen = 0;
-		while ((nread = tail_read(fd, buf, tailbufsize-taillen)) > 0) {
-			if (from_top) {
+		while ((nread = tail_read(fd, buf, tailbufsize - taillen)) > 0) {
+			if (G.from_top) {
 				int nwrite = nread;
 				if (seen < count) {
 					/* We need to skip a few more bytes/lines */
 					if (COUNT_BYTES) {
 						nwrite -= (count - seen);
-						seen = count;
+						seen += nread;
 					} else {
 						char *s = buf;
 						do {
@@ -288,10 +327,11 @@ int tail_main(int argc, char **argv)
 				buf = tailbuf + taillen;
 			}
 		} /* while (tail_read() > 0) */
-		if (!from_top) {
+		if (!G.from_top) {
 			xwrite(STDOUT_FILENO, tailbuf, taillen);
 		}
 	} while (++i < nfiles);
+	prev_fd = fds[i-1];
 
 	tailbuf = xrealloc(tailbuf, BUFSIZ);
 
@@ -335,18 +375,32 @@ int tail_main(int argc, char **argv)
 			if (nfiles > header_threshhold) {
 				fmt = header_fmt_str;
 			}
-			while ((nread = tail_read(fd, tailbuf, BUFSIZ)) > 0) {
-				if (fmt) {
+			for (;;) {
+				/* tail -f keeps following files even if they are truncated */
+				struct stat sbuf;
+				/* /proc files report zero st_size, don't lseek them */
+				if (fstat(fd, &sbuf) == 0 && sbuf.st_size > 0) {
+					off_t current = lseek(fd, 0, SEEK_CUR);
+					if (sbuf.st_size < current)
+						xlseek(fd, 0, SEEK_SET);
+				}
+
+				nread = tail_read(fd, tailbuf, BUFSIZ);
+				if (nread <= 0)
+					break;
+				if (fmt && (fd != prev_fd)) {
 					tail_xprint_header(fmt, filename);
 					fmt = NULL;
+					prev_fd = fd;
 				}
 				xwrite(STDOUT_FILENO, tailbuf, nread);
 			}
 		} while (++i < nfiles);
-	}
+	} /* while (1) */
+
 	if (ENABLE_FEATURE_CLEAN_UP) {
 		free(fds);
 		free(tailbuf);
 	}
-	return G.status;
+	return G.exitcode;
 }
