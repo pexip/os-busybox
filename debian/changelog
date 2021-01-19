@@ -1,6 +1,10 @@
 busybox (1:1.30.1-4pexip1) pexip; urgency=high
 
   * Migrate to Buster
+  * Enable base64 and install applets
+  * Add long options to cmp/mktemp/sort
+  * Add --bytes support to cmp
+  * Add -e/-m support to readlink
 
  -- John-Mark Bell <jmb@pexip.com>  Tue, 19 Jan 2021 17:54:17 +0000
 
