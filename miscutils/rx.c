@@ -14,6 +14,24 @@
  *
  * This was originally written for blob and then adapted for busybox.
  */
+//config:config RX
+//config:	bool "rx (2.9 kb)"
+//config:	default y
+//config:	select PLATFORM_LINUX
+//config:	help
+//config:	Receive files using the Xmodem protocol.
+
+//applet:IF_RX(APPLET(rx, BB_DIR_USR_BIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_RX) += rx.o
+
+//usage:#define rx_trivial_usage
+//usage:       "FILE"
+//usage:#define rx_full_usage "\n\n"
+//usage:       "Receive a file using the xmodem protocol"
+//usage:
+//usage:#define rx_example_usage
+//usage:       "$ rx /tmp/foo\n"
 
 #include "libbb.h"
 
@@ -76,7 +94,7 @@ static int receive(/*int read_fd, */int file_fd)
 		int blockBegin;
 		int blockNo, blockNoOnesCompl;
 		int cksum_or_crc;
-		int expected;
+		unsigned expected;
 		int i, j;
 
 		blockBegin = read_byte(timeout);
@@ -93,19 +111,17 @@ static int receive(/*int read_fd, */int file_fd)
 			 && blockBuf[blockLength - 3] == PAD
 			) {
 				while (blockLength
-			           && blockBuf[blockLength - 1] == PAD
+				    && blockBuf[blockLength - 1] == PAD
 				) {
 					blockLength--;
 				}
 			}
 		}
 		/* Write previously received block */
-		if (blockLength) {
-			errno = 0;
-			if (full_write(file_fd, blockBuf, blockLength) != blockLength) {
-				bb_perror_msg("can't write to file");
-				goto fatal;
-			}
+		errno = 0;
+		if (full_write(file_fd, blockBuf, blockLength) != blockLength) {
+			bb_perror_msg(bb_msg_write_error);
+			goto fatal;
 		}
 
 		timeout = TIMEOUT;
@@ -147,15 +163,11 @@ static int receive(/*int read_fd, */int file_fd)
 			blockBuf[i] = cc;
 		}
 
+		cksum_or_crc = read_byte(TIMEOUT);
+		if (cksum_or_crc < 0)
+			goto timeout;
 		if (do_crc) {
-			cksum_or_crc = read_byte(TIMEOUT);
-			if (cksum_or_crc < 0)
-				goto timeout;
 			cksum_or_crc = (cksum_or_crc << 8) | read_byte(TIMEOUT);
-			if (cksum_or_crc < 0)
-				goto timeout;
-		} else {
-			cksum_or_crc = read_byte(TIMEOUT);
 			if (cksum_or_crc < 0)
 				goto timeout;
 		}
@@ -164,6 +176,7 @@ static int receive(/*int read_fd, */int file_fd)
 			/* a repeat of the last block is ok, just ignore it. */
 			/* this also ignores the initial block 0 which is */
 			/* meta data. */
+			blockLength = 0;
 			goto next;
 		}
 		if (blockNo != (wantBlockNo & 0xff)) {
@@ -190,8 +203,8 @@ static int receive(/*int read_fd, */int file_fd)
 		}
 		if (cksum_or_crc != expected) {
 			bb_error_msg(do_crc ? "crc error, expected 0x%04x, got 0x%04x"
-			                   : "checksum error, expected 0x%02x, got 0x%02x",
-					expected, cksum_or_crc);
+					: "checksum error, expected 0x%02x, got 0x%02x",
+				expected, cksum_or_crc);
 			goto error;
 		}
 
@@ -204,6 +217,7 @@ static int receive(/*int read_fd, */int file_fd)
 		continue;
  error:
  timeout:
+		blockLength = 0;
 		errors++;
 		if (errors == MAXERRORS) {
 			/* Abort */
@@ -249,6 +263,7 @@ int rx_main(int argc UNUSED_PARAM, char **argv)
 
 	termios_err = tcgetattr(read_fd, &tty);
 	if (termios_err == 0) {
+//TODO: use set_termios_to_raw()
 		orig_tty = tty;
 		cfmakeraw(&tty);
 		tcsetattr(read_fd, TCSAFLUSH, &tty);

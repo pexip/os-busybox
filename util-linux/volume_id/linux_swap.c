@@ -17,6 +17,12 @@
  *	License along with this library; if not, write to the Free Software
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+//config:config FEATURE_VOLUMEID_LINUXSWAP
+//config:	bool "linux swap filesystem"
+//config:	default y
+//config:	depends on VOLUMEID
+
+//kbuild:lib-$(CONFIG_FEATURE_VOLUMEID_LINUXSWAP) += linux_swap.o
 
 #include "volume_id_internal.h"
 
@@ -72,7 +78,7 @@ int FAST_FUNC volume_id_probe_linux_swap(struct volume_id *id /*,uint64_t off*/)
 
 found:
 //	volume_id_set_usage(id, VOLUME_ID_OTHER);
-//	id->type = "swap";
+	IF_FEATURE_BLKID_TYPE(id->type = "swap";)
 
 	return 0;
 }

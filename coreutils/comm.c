@@ -6,6 +6,24 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+//config:config COMM
+//config:	bool "comm (4.2 kb)"
+//config:	default y
+//config:	help
+//config:	comm is used to compare two files line by line and return
+//config:	a three-column output.
+
+//applet:IF_COMM(APPLET(comm, BB_DIR_USR_BIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_COMM) += comm.o
+
+//usage:#define comm_trivial_usage
+//usage:       "[-123] FILE1 FILE2"
+//usage:#define comm_full_usage "\n\n"
+//usage:       "Compare FILE1 with FILE2\n"
+//usage:     "\n	-1	Suppress lines unique to FILE1"
+//usage:     "\n	-2	Suppress lines unique to FILE2"
+//usage:     "\n	-3	Suppress lines common to both files"
 
 #include "libbb.h"
 
@@ -44,8 +62,7 @@ int comm_main(int argc UNUSED_PARAM, char **argv)
 	int i;
 	int order;
 
-	opt_complementary = "=2";
-	getopt32(argv, "123");
+	getopt32(argv, "^" "123" "\0" "=2");
 	argv += optind;
 
 	for (i = 0; i < 2; ++i) {

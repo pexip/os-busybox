@@ -1,53 +1,785 @@
+busybox (1:1.30.1-4pexip1) pexip; urgency=high
+
+  * Migrate to Buster
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 19 Jan 2021 17:54:17 +0000
+
+busybox (1:1.30.1-4) unstable; urgency=high
+
+  [ Ben Hutchings ]
+  * Drop "Stop overriding stack alignment on i386" as this behaviour is now
+    configurable
+  * debian/rules: Enable verbose output (V=1) for "make oldconfig"
+
+  [ Cyril Brulebois ]
+  * Reinstate temp-deb-installer-hack.patch and FEATURE_DI_ENV_HACK=y
+    Closes: #925979
+
+ -- Christoph Biedl <debian.axhn@manchmal.in-ulm.de>  Mon, 01 Apr 2019 07:17:50 +0200
+
+busybox (1:1.30.1-3) unstable; urgency=high
+
+  * Ignore any valid_lft or preferred_lft parameters to ip, thanks 
+    Steve Langasek. Closes: #924442
+  * Fix ip oneline, thanks Dominik George. Closes: #924374
+
+ -- Christoph Biedl <debian.axhn@manchmal.in-ulm.de>  Sun, 24 Mar 2019 16:52:05 +0100
+
+busybox (1:1.30.1-2) unstable; urgency=high
+
+  * Complete the fix for [CVE-2018-20679] Closes: #918846
+
+ -- Christoph Biedl <debian.axhn@manchmal.in-ulm.de>  Sat, 02 Mar 2019 09:11:13 +0100
+
+busybox (1:1.30.1-1) unstable; urgency=high
+
+  [ Christoph Biedl ]
+  * New upstream version 1.30.1
+    Closes: #918846 [CVE-2018-20679]
+  * Refresh patch queue
+  * Update busybox configurations for new upstream version
+
+  * Debian packaging changes:
+    [ Chris Boot ]
+    * Check signatures on upstream tarballs:
+      - d/watch: set opts=pgpsigurlmangle
+      - d/upstream/signing-key.asc: import Denis Vlasenko's key
+    * d/changelog:
+      - Correct CVE reference in changelog entry for previous upload.
+      - Remove trailing whitespace.
+    * d/rules:
+      - Remove trailing whitespace.
+    * Switch to debhelper 11.
+    * d/control:
+      - Set Rules-Requires-Root: no.
+      - Bump Standards-Version to 4.1.5; no other changes required.
+    * Remove obsolete files:
+      - d/bin/genorig.py: not needed since ~2008.
+      - d/udeb-sizes: not updated since ~2012.
+    [ Christoph Biedl ]
+    * Add a README for any package maintainer
+
+  [ Chris Boot ]
+  * Refresh and rework patches:
+    - Drop patches cherry-picked from upstream.
+    - Drop temp-deb-installer-hack.patch: no longer needed.
+    - Rework patches to account for upstream changes:
+      - shell-ash-export-HOME.patch
+      - version.patch
+  * Enable new applets for use by initramfs-tools: nuke, resume, run-init.
+
+ -- Christoph Biedl <debian.axhn@manchmal.in-ulm.de>  Fri, 01 Mar 2019 21:19:43 +0100
+
+busybox (1:1.27.2-3) unstable; urgency=medium
+
+  [ Cyril Brulebois ]
+  * Update Vcs-{Browser,Git} to point to salsa (alioth's replacement).
+
+  [ Chris Lamb ]
+  * PEP8 fixes.
+
+  [ Ben Hutchings ]
+  * Stop overriding stack alignment on i386 (Closes: #886506)
+  * Apply security fixes for wget from upstream:
+    - wget: more thorough sanitization of other side's data
+    - wget: check chunk length for overflowing off_t (CVE-2018-1000517)
+      (Closes: #902724)
+    - wget: handle URLs with @ or hash differently
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Fri, 13 Jul 2018 04:19:08 +0100
+
+busybox (1:1.27.2-2) unstable; urgency=medium
+
+  * Trigger an initramfs rebuild on installation. (Closes: #549022)
+  * Temporarily re-enable invalid variable names in the udeb flavour for
+    debian-installer.
+  * Install the readlink binary in /bin. (Closes: #801850)
+  * Fix integer overflow in bzip2 decompresson [CVE-2017-15873].
+    (Closes: #879732)
+  * Fix integer underflow in LZMA decompressor [CVE-2017-15874].
+    (Closes: #879732)
+  * Prevent tab completion for strings containing control characters
+    [CVE-2017-16544].
+  * Debian packaging changes:
+    - Update debian/control:
+      - Update Standards-Version to 4.1.1.
+      - Change Priority to optional for all packages.
+    - Remove obsolete debian/gbp.conf.
+    - Update debian/watch:
+      - Switch to format=4.
+      - Use HTTPS URI.
+
+ -- Chris Boot <bootc@debian.org>  Tue, 28 Nov 2017 13:45:04 +0000
+
+busybox (1:1.27.2-1) unstable; urgency=medium
+
+  * New upstream release. This addresses:
+    - Segmentation fault when creating compressed tar files. (Closes: #812074)
+    - Pointer misuse unziping files. (Closes: #803097)
+    - Buffer overflow in the DHCP client [CVE-2016-2148]. (Closes: #818497)
+    - Integer overflow in the DHCP client [CVE-2016-2147]. (Closes: #818499)
+  * Postpone creation of symlinks with "suspicious" targets [CVE-2011-5325].
+    (Closes: #802702)
+  * Re-enable the test suite during build. (Closes: #794526)
+  * udhcpc: correct a typo in /etc/udhcpc/default.script. (Closes: #873472)
+  * Debian packaging changes:
+    - Run wrap-and-sort -st.
+    - Update debian/control:
+      - Replace Uploaders with myself and Christoph Biedl. Many thanks to
+        Bastian Blank and Michael Tokarev for having maintained busybox for
+        many years prior.
+      - Remove Build-Depends to avoid ancient broken libc-dev-bin.
+      - Bump Build-Depends on debhelper to >= 10.
+    - Rewrite debian/rules:
+      - Simplify and use the dh sequencer.
+      - Remove test for ancient broken libc6 versions with static binaries.
+      - Strip -O2 from CFLAGS, falling back to -Os from the busybox
+        configuration.
+      - Abort the build if 'make oldconfig' changes the configuration at all.
+    - Update busybox build configuration files for the new upstream release.
+      - The udeb configuration mostly hasn't changed, but enable fgrep,
+        blkdiscard, bzcat and lsscsi.
+      - The deb and static configurations have had upstream recommendations
+        enabled for new options.
+    - Switch to debhelper compatibility level 10.
+    - Add Depends on lsb-base to busybox-syslogd and udhcpd.
+    - Update debian/.gitignore.
+    - Update Standards-Version to 4.0.1:
+      - Disable tests that require networking.
+
+ -- Chris Boot <bootc@debian.org>  Sun, 17 Sep 2017 17:59:31 +0100
+
+busybox (1:1.22.0-19) unstable; urgency=medium
+
+  * busybox-udeb, udhcpc: Remove /udhcpc/usr/share/udhcpc/default.script,
+    erroneously included in version 1:1.22.0-18
+  * Disable CONFIG_FEATURE_PREFER_APPLETS in standard build (Closes: #821307)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 17 Apr 2016 16:37:24 +0100
+
+busybox (1:1.22.0-18) unstable; urgency=medium
+
+  [ Colin Watson ]
+  * Use HTTPS for Vcs-* URLs, and link to cgit rather than gitweb.
+
+ -- Christian Perrier <bubulle@debian.org>  Thu, 04 Feb 2016 06:48:52 +0100
+
+busybox (1:1.22.0-17) unstable; urgency=medium
+
+  [ Ben Hutchings ]
+  * Completely take over busybox installation from initramfs-tools:
+    - Add conf hook defining BUSYBOXDIR
+    - Make main hook fail if /bin/busybox does not exist
+
+ -- Christian Perrier <bubulle@debian.org>  Fri, 22 Jan 2016 05:45:29 +0100
+
+busybox (1:1.22.0-16) unstable; urgency=medium
+
+  * Stop reading initramfs.conf in initramfs hook; this is redundant and can
+    result in a broken initramfs (Closes: #810153)
+
+ -- Ben Hutchings <ben@decadent.org.uk>  Sun, 17 Jan 2016 20:43:42 +0000
+
+busybox (1:1.22.0-15) unstable; urgency=medium
+
+  [ Michael Gilbert ]
+  * Fix CVE-2014-9645: modprobe accepts paths as modules (closes: #776186).
+
+ -- Cyril Brulebois <kibi@debian.org>  Wed, 04 Mar 2015 17:46:34 +0100
+
+busybox (1:1.22.0-14) unstable; urgency=low
+
+  * one more attempt to fix the glibc build-depend for #769190, now
+    using versioned build-dependency on libc-dev-bin which is named
+    this way on all architectures (unlike libc6|libc6.1|libc0.1|libc0.3)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 14 Nov 2014 12:52:18 +0300
+
+busybox (1:1.22.0-13) unstable; urgency=medium
+
+  * really fix #769190 the hard way, by build-conflicting with all
+    arch-specific names of libc with version <2.19-12 (Closes: #769190)
+  * check if glibc can produce working statically linked binaries
+    by performing a getpwnam("root") call before building (#754813)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 12 Nov 2014 23:59:30 +0300
+
+busybox (1:1.22.0-12) unstable; urgency=medium
+
+  * fix the previous changelog entry (wrong bug# was "fixed" and typos)
+  * ensure we build against non-broken glibc (>=2.19-12) (Closes: #769190)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 12 Nov 2014 12:37:11 +0300
+
+busybox (1:1.22.0-11) unstable; urgency=medium
+
+  * fix the built-using generation in the previous upload -- did not
+    work correctly for != 1 dependency and #588505 in dpkg
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 11 Nov 2014 19:24:21 +0300
+
+busybox (1:1.22.0-10) unstable; urgency=high
+
+  * lzop-add-overflow-check-CVE-2014-4607.patch (Closes: #768945)
+  * add Built-Using control field for -static, deriving it from
+    regular build (this will be glibc) (Closes: #768876)
+  * install only arch/indep deb as requested by binary-arch or binary-indep
+    target.  This fixes a long-standing lintian error, when package build
+    always produces busybox-syslogd package which is arch:all and should not
+    be built on a buildd.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 11 Nov 2014 17:07:34 +0300
+
+busybox (1:1.22.0-9) unstable; urgency=medium
+
+  * cherry-pick find /BITS patch from upstream (Closes: #760637)
+  * clean-up provides/replaces/conflicts of busybox-syslogd from referencs
+    to klogd/sysklogd/inetutils-syslogd, only keep virtual packages
+    {linux-kernel,system}-log-daemon in there (Closes: #730059)
+  * test for /run/systemd/system in busybox-klogd initscript and exit
+    if present, to not conflict with systemd klogd functions
+  * do not pass extra params to dh_installinit (using dep-based ordering)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 30 Sep 2014 08:50:20 +0400
+
+busybox (1:1.22.0-8) unstable; urgency=medium
+
+  * Team upload
+
+  [ Michael Tokarev ]
+  * iproute-support-onelink-route-option-and-print-route-flags.patch
+  * udhcpc default script improvements:
+    - set interface up in deconfig, which allows udhcpc to operate on
+      initially down interface
+    - set mtu if given
+    - always use $subnet (it is always set)
+    - use (linux-specific) ip applet (since udhcpc is linux-specific anyway)
+    - only process one default route, since linux ignores all but the first
+    - only change default route if differ from actual
+    - special-case for /32 subnets, add host route to the router IP
+      (used heavily in clouds and other thin provisioning environments)
+      (partially Closes: #652573, for udhcpc)
+    - flush routes in deconfig too
+    - log messages to syslog
+    - various minor cleanups
+  * busybox-udeb: use ip route onlink in udhcpc script to handle /32 subnets
+    (Closes: #652573)
+  * update-deb-format-support.patch: patch from Guillem Jover to support
+    xz format in busybox dpkg (enabled only in busybox-static)
+    (same patch than the one in -7 but named differently)
+
+ -- Christian Perrier <bubulle@debian.org>  Sun, 03 Aug 2014 12:38:57 +0200
+
+busybox (1:1.22.0-7) unstable; urgency=low
+
+  * Team upload
+
+  [ Guillem Jover ]
+  * Update deb format support. Closes: #756462
+
+  [ Christian Perrier ]
+  * Add gbp.conf to build the package automatically with git-
+    buildpackage
+  * Source /lib/lsb/init-functions in udhcpd init script
+
+ -- Christian Perrier <bubulle@debian.org>  Sun, 03 Aug 2014 09:22:14 +0200
+
+busybox (1:1.22.0-6) unstable; urgency=low
+
+  * Team upload
+
+  [ Cyril Brulebois ]
+  * Fix typo in udhcpc's long description, thanks to Pascal De Vuyst for
+    the report (Closes: #745292).
+
+ -- Christian Perrier <bubulle@debian.org>  Mon, 28 Apr 2014 08:48:37 +0200
+
+busybox (1:1.22.0-5) unstable; urgency=low
+
+  * Team upload
+
+  [ Michael Tokarev ]
+  * enable (apparently forgotten) lzop applet for regular and static builds
+  * support DEB_BUILD_OPTIONS=parallel=N (Closes: #740397)
+  * support DEB_BUILD_OPTIONS=nocheck to skip testsuite run
+  * enable date applet for udeb flavour too (Closes: #702093)
+
+ -- Christian Perrier <bubulle@debian.org>  Sat, 22 Mar 2014 20:06:42 +0100
+
+busybox (1:1.22.0-4) unstable; urgency=low
+
+  * new: do-not-fail-on-missing-SIGPWR.patch: fix FTBFS on !linux,
+    refresh: testsuite-kfreebsd.diff: fix testsuite on kFreebsd
+    Thanks to Steven Chamberlain for this (Closes: #736975).
+  * new: zcat:-complain-if-input-is-not-compressed.diff patch from
+    upstream, to fix zcat allowing uncompressing input after
+    previous fixes for #736872
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 03 Feb 2014 12:51:26 +0400
+
+busybox (1:1.22.0-3) unstable; urgency=low
+
+  * mention closing of #685361 by 1.22
+  * enable devmem applet for regular and static builds (Closes: #696704)
+  * enable acpid applet for regular and static builds (Closes: #704815)
+  * enable mount -f (MOUNT_FAKE) for all builds (Closes: #484799)
+  * let busybox-static to provide busybox (Closes: #375568)
+  * added two fixes from upstream (Closes: #736872)
+    libarchive-open_zipped-does-not-need-to-check-extensions.diff
+    libbb-open_zipped-should-not-fail-on-non-compressed-files.diff
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 28 Jan 2014 14:27:50 +0400
+
+busybox (1:1.22.0-2) unstable; urgency=low
+
+  * use the same initramfs hook for busybox-static as
+    for busybox (Closes: #736521)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 26 Jan 2014 19:47:07 +0400
+
+busybox (1:1.22.0-1) unstable; urgency=low
+
+  * new upstream release (1.22.0), removed patches which were upstreamed.
+    This version actually fixes #686502 (concatenated xz streams)
+    which were closed in debian but the patch has been dropped meanwhile.
+    (also Closes: #685361)
+  * update configs.  In particular, enable new fstrim applet
+    for regular build
+  * update to 1.22.1 (1.22.1.diff)
+  * include stable changes from upstream up to 2014-01-23
+  * testsuite-fix-last-which-change.diff (applied upstream):
+    use `command -v' instead of `command -pv' (Closes: #733502)
+  * added description to version.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 23 Jan 2014 18:39:42 +0400
+
+busybox (1:1.21.0-6exp) experimental; urgency=low
+
+  * increase syslog buffer size from 256 to 1024 bytes,
+    hopefully this (Closes: #519356)
+  * mention closing of #681940, #701960, #716808 by 1.21
+  * document static_lease in udhcpd.conf.5 (Jonathan David Amery)
+    (Closes: #699229)
+  * fix busybox initramfs hook to actually _run_ (make it executable)
+    and actually strip leading /usr from applet paths.  Stupid.
+    (Closes: #732256)
+  * move build directory from debian/build to build
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 16 Dec 2013 13:31:55 +0400
+
+busybox (1:1.21.0-5exp) experimental; urgency=low
+
+  * build-depend on zip so that the testsuite can be run
+  * update Standards-Version to 3.9.5 (no changes needed)
+  * always run testsuite in verbose mode
+  * run testsuite with C.UTF8 locale to enable unicode tests
+  * fail if the testsuite fails (when RUN_TESTSUITE=y)
+  * fix or disable some tests for non-linux OSes
+    (debian/testsuite-*.diff files)
+  * taskset is linux-specific, disable it for kfreebsd and hurd
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 09 Dec 2013 21:59:25 +0400
+
+busybox (1:1.21.0-4exp) experimental; urgency=low
+
+  * actually enable running the testsuite
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 09 Dec 2013 15:06:07 +0400
+
+busybox (1:1.21.0-3exp) experimental; urgency=low
+
+  * enable running the testsuite but do not fail the build if testsuite fails
+  * readlink-MAXSYMLINKS-hurd.patch to stop busybox from ftbfs'ing on hurd
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 09 Dec 2013 14:51:33 +0400
+
+busybox (1:1.21.0-2exp) experimental; urgency=low
+
+  * set CONFIG_BUSYBOX_EXEC_PATH=/proc/self/exe on linux and kfreebsd,
+    and set it to /bin/busybox on hurd since it does not have /proc/self/exe
+    equivalent.
+    This is needed to at least run the testsuite, because we really want to
+    execute our just-built binary, not system /bin/busybox binary.  And this
+    is needed in all other cases when our binary is not in /bin/busybox.
+    This is the upstream default too.
+    The original change were made at Mar-2008 when applet-fallback patch
+    were introduced, in an attempt to fix #472653.  Without this change,
+    busybox was useless in the very beginning of initramfs.  In order to
+    fix this, we'll create applet links to busybox binary in /bin&Co.
+  * add initramfs hook to install busybox properly in initramfs
+  * apply testsuite-bashisms.patch, to enable running of testsuite with dash.
+  * add ability to run testsuite (disabled for now, unicode tests fail on sid)
+  * rewamp/simplify debian/rules
+  * use busybox versions of ifconfig and route in udhcpc script
+    (Closes: #684596)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 07 Dec 2013 19:47:27 +0400
+
+busybox (1:1.21.0-1) unstable; urgency=low
+
+  * new upstream release (1.21) (Closes: #681940, #701960, #716808)
+  * removed all 1.20.* patches from upstream, plus a few other
+    which are also applied now:
+    - dont-force-no-alignment-for-s390.patch
+    - grep-fix-grep--Fw-not-respecting-the--w-option.patch
+    - mdev-fix-mode-of-dir1-in-=dir1-dir2-file-rule.patch
+    - cherrypick-include-fix-ftbfs-gcc4.8.patch
+  * refreshed patches:
+    = shell-ash-export-HOME.patch
+    = u-mount-FreeBSD-support.patch
+  * refreshed configs
+  * applied 1.21.1 (stable) patch from upstream, and removed more
+    patches which are now included in 1.21.1:
+    - xz-support-concatenated-xz-streams.patch
+    - fix-move_to_unaligned16.patch
+    - xz-fix-put_unaligned_e32.patch
+  * removed applets-fallback.patch.  It hasn't been applied since 1.20
+    (including wheezy), just get rid of it finally.  Please note that
+    this wasn't intentional, I didn't plan to stop applying it for
+    wheezy, especially silently.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 10 Nov 2013 18:34:21 +0400
+
+busybox (1:1.20.0-9) unstable; urgency=low
+
+  * Team upload
+
+  [ Dmitrijs Ledkovs ]
+  * Bump debhelper compat level to 9.
+  * Set Vcs-* to canonical format.
+  * Cherrypick missing includes from 1.21, to fix FTBFS with gcc4.8.
+
+  [ Christian Perrier ]
+  * Update Standards to 3.9.4 (checked)
+
+ -- Christian Perrier <bubulle@debian.org>  Sat, 24 Aug 2013 08:37:40 +0200
+
+busybox (1:1.20.0-8) unstable; urgency=low
+
+  * grep-fix-grep--Fw-not-respecting-the--w-option.patch - implement
+    fgrep -w correctly (Closes: #695862)
+  * xz-support-concatenated-xz-streams.patch (Closes: #686502)
+  * lineedit-initialize-delptr.patch - fix segfault in line editing
+    facility (Closes: #701959)
+  * mdev-fix-mode-of-dir1-in-=dir1-dir2-file-rule.patch - make intermediate
+    dirs in /dev to be of mode 0755 not 0777 (Closes: #701965)
+  * fix unaligned access macros (Closes: #701968)
+    - fix-move_to_unaligned16.patch
+    - xz-fix-put_unaligned_e32.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 02 Mar 2013 16:42:49 +0400
+
+busybox (1:1.20.0-7) unstable; urgency=low
+
+  * set CONFIG_FEATURE_COPYBUF_KB from 4 to 64 for all flavours.  This
+    increases speed of various applets *dramatically*.  For example, wget
+    applet download time for certain file decreased from 3.8sec to 0.6sec.
+  * modprobe-read-modules-builtin.patch: stop modprobe from complaining
+    when asked to load a "module" which is built-in.  Thank you
+    Ben Hutchings for the patch. (Closes: #652672)
+  * udeb: enable ping6 applet and FEATURE_FANCY_PING - more featureful
+    ping(6) variant with statistics et al.  This makes ping6 available in
+    d-i (initial network debugging), and makes ping there not only more
+    useful but also using a more tested code, as used in other variants.
+    4Kb file size increase on i386.
+  * stop-checking-ancient-kernel-version.patch: a rather trivial patch
+    to disable compatibility code for kernels <2.2.18 in nfs mount.
+    This was the only place in debian busybox which used
+    get_linux_version_code() function which was buggy on kernels with
+    less than 3 components version number.  So instead of fixing that
+    function, we got rid of the last user of it.  (Closes: #684611)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 20 Sep 2012 10:32:55 +0400
+
+busybox (1:1.20.0-6) unstable; urgency=low
+
+  * reorder patches in debian/patches/series: all upstream first,
+    debian-specific next.  cmp(1) shows no changes in the resulting
+    sources (after applying patches both ways)
+  * dont-force-no-alignment-for-s390.patch: do not use ALIGN* macros
+    on s390 and s390x because gcc generates wrong code (for wrong
+    declarations).  No effect for anything but s390(x), where the
+    resulting package does not work anyway. (Closes: 681760)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 22 Jul 2012 12:30:02 +0400
+
+busybox (1:1.20.0-5) unstable; urgency=low
+
+  * enable various xargs features for all flavours, to make it work
+    as POSIX requires (notable quotes and backslash processing).
+    Also enable -0 option, apparently forgotten at the time (it
+    complements find -print0 which is enabled).  (Closes: #680342)
+  * replace my ps-get-uptime.patch with busybox-1.20.1-ps.patch
+    (it is the same patch, just file formatting changed and it
+    is now obvios the patch is applied upstream)
+  * added another upstream bugfix patch, busybox-1.20.1-mke2fs.patch,
+    to fix mkfs.ext2 breakage.  It is only used in static flavour in
+    debian, but producing broken filesystem isn't an option there too.
+  * busybox-1.20.1-1.20.2.patch -- change version to 1.20.2.  This is
+    the only remaining change to upstream 1.20.2 stable release.
+  * enable ping applet for udeb build, +613 bytes on i386.  (Closes: #406114)
+  * update shell-ash-export-HOME.patch - DEP-3 headers and a long
+    description.  This patch now removes "const" modifier from the
+    default PATH variable definition, making it writable.  Full
+    description is within the patch comments. (Closes: #679377)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 08 Jul 2012 01:37:18 +0400
+
+busybox (1:1.20.0-4) unstable; urgency=low
+
+  * ps-get-uptime.patch: make procps/ps.c compilable on non-linux again
+    (Closes: #677254)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 12 Jun 2012 21:17:52 +0400
+
+busybox (1:1.20.0-3) unstable; urgency=low
+
+  * 1.20 had a few fixes which I forgot to mention:
+    - integer overflow in expression on big endian (Closes: #635370)
+      (I dislike the fix since it makes use of 64bit integers
+      instead of using unsigned 32bit, but this is how upstream
+      fixed it)
+    - CVE-2011-2716 udhcpc insufficient checking of DHCP options (Closes: #635548)
+      busybox dhcpd now replaces values of HOST_NAME, DOMAIN_NAME,
+      NIS_DOMAIN, TFTP_SERVER_NAME with the literal string "bad"
+      if these contains any bad characters.
+  * applied stable patches from upstream (ash, man, ifupdown, tar)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 02 Jun 2012 14:54:04 +0400
+
+busybox (1:1.20.0-2) experimental; urgency=low
+
+  * new 1.20.1 upstream bugfix release (debian/patches/1.20.1.patch),
+    all patches in upstream/ merged
+  * removed reenable-ps-options-for-DESKTOP-case.patch, it was wrong
+    (see https://bugs.busybox.net/show_bug.cgi?id=5216)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 30 May 2012 12:10:47 +0400
+
+busybox (1:1.20.0-1) experimental; urgency=low
+
+  * new upstream (mostly bugfix) release
+  * got rid of the long-standing debian-specific applets-fallback.patch, once
+    upstream added commit 83f103b30e41ab038e "ash: in standalone mode, search
+    in $PATH if /proc/self/exe doesn't exist".  I still carry the patch itself,
+    but it isn't referenced in the series file anymore.
+  * removed patches which were applied upstream, and added a few patches
+    from upstream 1.20 stable branch
+  * refreshed swaponoff-FreeBSD-support.patch and u-mount-FreeBSD-support.patch
+  * refreshed configs for 1.20
+  * enabled many httpd options (AUTH_MD5, RANGES, SETUID, CGI, GZIP, ENCODE)
+    for static and regular build, which results in ~5Kb binary size difference
+    on x86 but enables features users are asking
+    (Closes: #548999, #626820, #571743)
+  * enabled dpkg-buildflags usage (filtering out -Werror=format-security from
+    CFLAGS) (Closes: #670993)
+  * ship some docs and examples in static and regular builds (Closes: #671832)
+  * enable expand/unexpand and ar-long-options in deb build, - small changes
+    to reduce difference from static config.
+  * added reenable-ps-options-for-DESKTOP-case.patch
+  * DEP-3 headers for init-console.patch
+
+  * releasing to experimental due to applets-fallback.patch removal
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 16 May 2012 13:47:42 +0400
+
+busybox (1:1.19.3-7) unstable; urgency=low
+
+  * enable stat applet for deb & static
+  * enable less applet for deb ("more" does not quite work)
+    and enable some options for it in static build
+  * enabled a few options for top and ps applets in deb, taken from static
+  * enabled NFS mount (Note: only NFSv2 and v3, not v4, and only on Linux)
+    (Closes: #573056, #348664)
+  * enabled microcom for deb build, taken from static
+  * relaxed the "links" subpackages version dependencies from source:Version
+    to source:Upstream-Version
+  * DISabled some questionable applets from static build,
+    to match regular build:
+   - acpid
+   - fbset (Closes: #310128) -- removing non-functional fbset
+   - adduser, deluser, addgroup, delgroup
+   - fsck_minix, mkfs_minix
+   - eject
+   - makedevs
+   - fdflush
+   - vlock
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 13 Apr 2012 11:54:16 +0400
+
+busybox (1:1.19.3-6) unstable; urgency=low
+
+  * enable arp applet for static&regular builds
+    (lacking ip neigh)
+  * enable mdev applet for regular build and all
+    options for regular&static builds (it has already
+    been enabled for static)
+  * enable init and halt/poweroff/shutdown applets for
+    all variants and make them consistent.  Also remove
+    mesg applet from static build
+  * enable vconfig applet for regular build, making it
+    consistent with static & udeb
+  * enable hwclock applet for regular & udeb builds, and
+    disable FHS adjtime for static build (to make the
+    location consistent with util-linux)
+  * enable login&getty applets in regular build (the same as for static)
+    (Closes: #523034)
+  * kFreeBSD does not define MNT_NODEV anymore, work around it
+    (Closes: #667530)
+  * apply fix-test-!-segfault.patch from upstream git.  (Closes: #660573)
+  * bump Standards-Version to 3.9.3 (no changes necessary)
+  * simplify debian/rules a bit
+  * mark udhcpc and udhcpd packages as Architecture: linux-any instead of all,
+    since they're really linux-specific for now, which in debian terms means
+    not arch-independent so "all" can't be used.  This means that we'll have
+    uchcpc_i386.deb, udhcpc_mipsel.deb etc so it wastes space in archives,
+    but this should give better _user_ experience.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 12 Apr 2012 12:15:43 +0400
+
+busybox (1:1.19.3-5) unstable; urgency=low
+
+  * enabled module-init-tools (for 2.6+ kernels, with depmod and modinfo)
+    in all 3 - regular, static and udeb - builds.  Size change on i386:
+
+      text    data     bss     dec     hex filename
+    525121    1779    8984  535884   82d4c busybox(deb)
+    532431    1779    8984  543194   849da busybox(deb)+mit+modinfo
+    534137    1779    8984  544900   85084 busybox(deb)+mit+modinfo+depmod
+    294309    1514    8688  304511   4a57f busybox(udeb)
+    298131    1514    8688  308333   4b46d busybox(udeb)+mit
+    299290    1514    8688  309492   4b8f4 busybox(udeb)+mit+modinfo
+    301397    1518    8688  311603   4c133 busybox(udeb)+mit+modinfo+depmod
+
+    which is about 7Kb (9Kb with depmod) difference for regular deb and
+    5Kb (7Kb with depmod) for udeb.  This is a long-awaited change.
+    (Closes: #288759, #298119, #250047)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 16 Dec 2011 18:07:43 +0400
+
+busybox (1:1.19.3-4) unstable; urgency=low
+
+  * move the forgotten udeb udhcpc script to /etc/udhcpc too
+    (Closes: #650400)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 30 Nov 2011 23:28:02 +0400
+
+busybox (1:1.19.3-3) unstable; urgency=low
+
+  [ Otavio Salvador ]
+  * kfreebsd: use xterm terminal type instead of cons25. Thanks to
+    Robert Millan <rmh@debian.org> for the patch. Closes: #647672.
+
+  [ Michael Tokarev ]
+  * added /etc/insserv.conf.d/busybox-syslogd to tell insserv we're
+    providing syslog service.  Closes: #647942
+  * stop canonicalizing "source" argument of mount on FreeBSD, to
+    allow "nodev" filesystems to be mounted.  Closes: #637082
+  * forcibly enable swapon/swapoff on kfreebsd even if these a marked
+    as linux-specific.  Closes: #647287.
+  * revert static-math-overflow-on-big-endian (Reopens: #635370)
+  * move udhcpc default.script from /usr/share/udhcpc back to /etc/udhcpc
+    where it was long time ago.  It may conflict with the same conffile
+    as was in udhcpc package back in lenny, but the scripts from that
+    pkg should continue working still.  Closes: #619114
+  * config changes:
+    + taskset applet (deb & static) (Closes: #624852)
+    + timeout applet (deb)
+    + setsid & cttyhack applets (deb & static) (Closes: #588324)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 23 Nov 2011 01:13:39 +0400
+
+busybox (1:1.19.3-2) unstable; urgency=low
+
+  * reorder PLATFORM_LINUX changes in debian/rules so that
+    it is possible to have OS-specific config overrides again,
+    which was broken with all this PLATFORM_LINUX mess
+    (Closes: #647287)
+  * added support for unxz (CONFIG_UNXZ) to udeb (+8Kb on i386)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 01 Nov 2011 20:44:30 +0400
+
+busybox (1:1.19.3-1) unstable; urgency=low
+
+  * another iteration around PLATFORM_LINUX change.
+    Do not remove PLATFORM_LINUX in arch-specific configs,
+    since it does not hide linux-specific options anyway.
+    This should finally fix FTBFS on kfreebsd, and it
+    makes config files exactly the same as they appear
+    on linux platform.
+  * add another patch (sent upstream) to mark modinfo
+    selecting CONFIG_LINUX as all other linux-specific
+    options.  Another FTBFS on kfreebsd and hurd
+  * add a patch (and sent upstream) to use CBAUD definition
+    conditionally in (rewritten in 0.19) getty.c - hurd does
+    not have this #define.  FTBFS on hurd.
+  * updated to upstream 1.19.3 (minor bugfix) release,
+    removing all patches taken from upstream
+  * static-math-overflow-on-big-endian.patch (sent upstream),
+    to fix integer overflow in header on big-endian platform
+    (closes: #635370)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 30 Oct 2011 21:55:22 +0400
+
+busybox (1:1.19.2-4) unstable; urgency=low
+
+  * update non-PLATFORM_LINUX cleanup to take config info
+    stored in source files too (run gen_build_files first)
+  * apply patches from upstream stable branch:
+     busybox-1.19.2-chpasswd.patch
+     busybox-1.19.2-inetd.patch
+     busybox-1.19.2-syslog.patch (closes: #646984)
+     busybox-1.19.2-tail.patch
+     busybox-1.19.2-tftp.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 29 Oct 2011 12:36:44 +0400
+
+busybox (1:1.19.2-3) unstable; urgency=low
+
+  * disable all config options which selects PLATFORM_LINUX
+    on non-linux platforms.  This should fix build problems
+    on kfreebsd and hurd.
+  * add myself to Uploaders.
+  * bump Standards-Version to 3.9.2 (no changes needed)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 28 Oct 2011 20:42:07 +0400
+
+busybox (1:1.19.2-2) unstable; urgency=low
+
+  * resurrect applets-fallback.patch for now,
+    thank you Stefan Lippers-Hollmann for the rediff.
+    This restores the (broken) initramfs usage
+    (Closes: #646284)
+  * s/XC-Package-Type/Package-Type/ in debian/control (lintian)
+  * add default build, build-arch and build-indep targets
+    to debian/rules (lintian), and remove old maintainerclean
+  * forgotten for 1.19: (Closes: #450895)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 23 Oct 2011 02:47:35 +0400
+
+busybox (1:1.19.2-1) unstable; urgency=low
+
+  [ Hector Oron ]
+  * enable cross compilation support (Closes: #572431)
+
+  [ Michael Tokarev ]
+  * new upstream release (1.19.2) (Closes: #450895):
+   * refreshed all patches, except:
+     o applets-fallback: disabled, will try to get rid of it
+     o udhcpc-emit-correct-secs-field: applied upstream
+     o dirname-basename-skip-doubledash: different version applied upstream
+   * refreshed configs, not enabling most new applets
+  * debian/rules:
+   o get rid of debian/stamps subdir and long dirnames in debian/build
+   o clean up old tarball-related stuff from debian/rules
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 22 Oct 2011 16:02:37 +0400
+
 busybox (1:1.18.5-1ubuntu4.1pexip1) pexip; urgency=low
 
   * Prepare Pexip packaging
 
  -- John-Mark Bell <jmb@pexip.com>  Tue, 24 Dec 2013 13:29:56 +0000
-
-busybox (1:1.18.5-1ubuntu4.1) precise-proposed; urgency=low
-
-  [ Timo Juhani Lindfors ]
-  * increase the maximum supported log line length from 256 to 512
-    bytes. (Closes: #519356, LP: #1040900)
-
- -- Adam Stokes <adam.stokes@canonical.com>  Fri, 28 Sep 2012 16:11:14 -0400
-
-busybox (1:1.18.5-1ubuntu4) precise; urgency=low
-
-  * debian/patches/fix-64-bit-permissions.patch: mkdir: fix permissions
-    on 64-bit platforms.  Taken from upstream.  LP: #980772.
-
- -- Steve Langasek <steve.langasek@ubuntu.com>  Fri, 13 Apr 2012 12:32:35 -0700
-
-busybox (1:1.18.5-1ubuntu3) precise; urgency=low
-
-  * [initramfs] Switch on 64 bit extensions (LP: #956870)
-  * [initramfs] Update package description - remove statically linked reference
-
- -- Neil Wilson <neil@aldur.co.uk>  Mon, 26 Mar 2012 14:06:13 +0100
-
-busybox (1:1.18.5-1ubuntu2) precise; urgency=low
-
-  * Include ping6 in the udeb package now that d-i supports IPv6.
-
- -- Stéphane Graber <stgraber@ubuntu.com>  Fri, 16 Dec 2011 18:19:30 -0500
-
-busybox (1:1.18.5-1ubuntu1) precise; urgency=low
-
-  * Resynchronise with Debian testing.  Remaining changes:
-    - [udeb] Enable chvt, killall, losetup, NFS mount, od, ping, and stat.
-    - [deb] Enable mdev.
-    - [deb, static] Enable CGI support for httpd.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - static-sh-alias.patch: Add static-sh alias name for ash, and install
-      /bin/static-sh symlink to busybox in busybox-static.
-    - Add cross-compiling support.
-  * Filter out -Werror=format-security from CFLAGS passed by
-    dpkg-buildpackage, at least for now.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 25 Oct 2011 15:01:39 +0100
 
 busybox (1:1.18.5-1) unstable; urgency=low
 
@@ -80,31 +812,6 @@ busybox (1:1.18.5-1) unstable; urgency=low
     VLANs itself (closes: #591756).
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 25 Jul 2011 13:08:04 +0400
-
-busybox (1:1.18.4-2ubuntu2) oneiric; urgency=low
-
-  * Backport from Debian:
-    - Fix udhcpc default.script to operate only on IPv4, to allow dual-stack
-      operation.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 30 Aug 2011 12:41:39 +0100
-
-busybox (1:1.18.4-2ubuntu1) oneiric; urgency=low
-
-  * Resynchronise with Debian (LP: #788888).  Remaining changes:
-    - [udeb] Enable chvt, getopt (and -l), killall, losetup, NFS
-      mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep and CGI support for httpd.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - static-sh-alias.patch: Add static-sh alias name for ash, and install
-      /bin/static-sh symlink to busybox in busybox-static.
-    - Add cross-compiling support.
-  * grep-o-loop.patch: dropped as fix and testcase in upstream
-
- -- Scott Moser <smoser@ubuntu.com>  Thu, 26 May 2011 15:02:29 -0400
 
 busybox (1:1.18.4-2) unstable; urgency=low
 
@@ -197,24 +904,6 @@ busybox (1:1.18.3-1) unstable; urgency=low
 
  -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 10 Mar 2011 22:44:45 +0300
 
-busybox (1:1.17.1-10ubuntu1) natty; urgency=low
-
-  * Resynchronise with Debian.  Remaining changes:
-    - [udeb] Enable chvt, getopt (and -l), killall, losetup, mktemp, NFS
-      mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep and CGI support for httpd.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - Add static-sh alias name for ash, and install /bin/static-sh symlink to
-      busybox in busybox-static.
-    - grep-o-loop.patch: Fix infinite loop in 'grep -o' with a pattern that
-      matches the zero-length string at the start of the line.
-    - Add cross-compiling support.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 23 Feb 2011 03:14:46 +0000
-
 busybox (1:1.17.1-10) unstable; urgency=low
 
   [ Michael Tokarev ]
@@ -244,36 +933,6 @@ busybox (1:1.17.1-9) unstable; urgency=low
 
  -- Christian Perrier <bubulle@debian.org>  Sun, 13 Feb 2011 08:23:54 +0100
 
-busybox (1:1.17.1-8ubuntu3) natty; urgency=low
-
-  * [initramfs] Enable which (LP: #384059).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 09 Feb 2011 12:42:44 +0000
-
-busybox (1:1.17.1-8ubuntu2) natty; urgency=low
-
-  * Turn on CGI support for httpd (LP: #710634)
-
- -- Chow Loong Jin <hyperair@ubuntu.com>  Mon, 31 Jan 2011 20:57:57 +0800
-
-busybox (1:1.17.1-8ubuntu1) natty; urgency=low
-
-  * Resynchronise with Debian.  Remaining changes:
-    - [udeb] Enable chvt, getopt (and -l), killall, losetup, mktemp, NFS
-      mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - Add static-sh alias name for ash, and install /bin/static-sh symlink to
-      busybox in busybox-static.
-    - grep-o-loop.patch: Fix infinite loop in 'grep -o' with a pattern that
-      matches the zero-length string at the start of the line.
-    - Add cross-compiling support.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 24 Dec 2010 17:40:44 +0000
-
 busybox (1:1.17.1-8) unstable; urgency=low
 
   * Set udhcpc and udhcpd Section to net, to match overrides.
@@ -281,72 +940,12 @@ busybox (1:1.17.1-8) unstable; urgency=low
 
  -- Colin Watson <cjwatson@debian.org>  Mon, 15 Nov 2010 14:36:31 +0000
 
-busybox (1:1.17.1-7ubuntu4) natty; urgency=low
-
-  * Drop if-header-conflicts patch from 1:1.17.1-7ubuntu2; linux-libc-dev
-    has been fixed.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 09 Dec 2010 15:43:58 +0000
-
-busybox (1:1.17.1-7ubuntu3) natty; urgency=low
-
-  * drop -marm from armel build options to make run-init work again
-  (LP: #683683)
-
- -- Oliver Grawert <ogra@ubuntu.com>  Thu, 02 Dec 2010 15:09:33 +0100
-
-busybox (1:1.17.1-7ubuntu2) natty; urgency=low
-
-  * Adjust <net/if.h> and related includes to compile properly with Linux
-    2.6.36; the conflicts between <net/if.h> and <linux/if.h> have got
-    particularly painful lately.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 09 Nov 2010 15:43:46 +0000
-
-busybox (1:1.17.1-7ubuntu1) natty; urgency=low
-
-  * Resynchronise with Debian.  Remaining changes:
-    - [udeb] Enable chvt, getopt (and -l), killall, losetup, mktemp, NFS
-      mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - Add static-sh alias name for ash, and install /bin/static-sh symlink to
-      busybox in busybox-static.
-    - Use -marm on armel due to gcc thumb2 compilation issue.
-    - grep-o-loop.patch: Fix infinite loop in 'grep -o' with a pattern that
-      matches the zero-length string at the start of the line.
-    - Add cross-compiling support.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 09 Nov 2010 13:09:29 +0000
-
 busybox (1:1.17.1-7) unstable; urgency=low
 
   * Backport blockdev applet from upstream, so that we can use it in
     os-prober (closes: #418163).
 
  -- Colin Watson <cjwatson@debian.org>  Tue, 09 Nov 2010 12:33:35 +0000
-
-busybox (1:1.17.1-6ubuntu1) natty; urgency=low
-
-  * Resynchronise with Debian.  Remaining changes:
-    - [udeb] Enable chvt, getopt (and -l), killall, losetup, mktemp, NFS
-      mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - Add static-sh alias name for ash, and install /bin/static-sh symlink to
-      busybox in busybox-static.
-    - Use -marm on armel due to gcc thumb2 compilation issue.
-    - grep-o-loop.patch: Fix infinite loop in 'grep -o' with a pattern that
-      matches the zero-length string at the start of the line.
-    - Add cross-compiling support.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 22 Oct 2010 11:37:59 +0100
 
 busybox (1:1.17.1-6) unstable; urgency=low
 
@@ -368,29 +967,9 @@ busybox (1:1.17.1-5) unstable; urgency=low
 
  -- Otavio Salvador <otavio@debian.org>  Thu, 21 Oct 2010 11:53:52 -0200
 
-busybox (1:1.17.1-4ubuntu1) natty; urgency=low
-
-  * Resynchronise with Debian.  Remaining changes:
-    - [udeb] Enable chvt, getopt (and -l), killall, losetup, mktemp, NFS
-      mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - Add static-sh alias name for ash, and install /bin/static-sh symlink to
-      busybox in busybox-static.
-    - Use -marm on armel due to gcc thumb2 compilation issue.
-    - grep-o-loop.patch: Fix infinite loop in 'grep -o' with a pattern that
-      matches the zero-length string at the start of the line.
-    - Add cross-compiling support.
-    - applets-fallback.patch: Never execute busybox applets when chrooting.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 13 Oct 2010 11:03:32 +0100
-
 busybox (1:1.17.1-4) unstable; urgency=low
 
-  * Update u-mount-FreeBSD-support.patch: 
+  * Update u-mount-FreeBSD-support.patch:
     - Add a few more mount options.
     - Fix mounting of nullfs filesystems.
 
@@ -428,7 +1007,7 @@ busybox (1:1.17.1-1) experimental; urgency=low
   * Fix busybox-udeb description: s/busybox-cvs-udeb/busybox-udeb/
   * Fix busybox description wrt --install option (Closes: #326243).
   * Fix /etc/init.d/udhcpd restart (Closes: #581342)
-  * Fix /etc/init.d/busybox-{klogd,syslogd} to correctly depend on 
+  * Fix /etc/init.d/busybox-{klogd,syslogd} to correctly depend on
     $remote_fs.
   * Fix bashism in udhcpc default.script (Closes: #572008, #572013,
     #572622).
@@ -444,52 +1023,6 @@ busybox (1:1.17.1-1) experimental; urgency=low
   * scripts/gen_build_files.sh: skip .pc files from quilt.
 
  -- Aurelien Jarno <aurel32@debian.org>  Tue, 03 Aug 2010 06:42:39 +0200
-
-busybox (1:1.15.3-1ubuntu5) maverick; urgency=low
-
-  * applets-fallback.patch: Never execute busybox applets when chrooting
-    (LP: #594162).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 04 Oct 2010 16:06:06 +0100
-
-busybox (1:1.15.3-1ubuntu4) maverick; urgency=low
-
-  * Add cross-compiling support (LP: #623392).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 25 Aug 2010 23:36:38 +0100
-
-busybox (1:1.15.3-1ubuntu3) maverick; urgency=low
-
-  * while armel builds without -marm it does not seem to run properly (things
-    like "reboot -f" in initramfs just hang silently), re-enable -marm for now
-
- -- Oliver Grawert <ogra@ubuntu.com>  Wed, 25 Aug 2010 18:05:23 +0200
-
-busybox (1:1.15.3-1ubuntu2) maverick; urgency=low
-
-  * armel seems to build fine without -marm nowadays, so remove it.
-  * grep-o-loop.patch: Fix infinite loop in 'grep -o' with a pattern that
-    matches the zero-length string at the start of the line (LP: #619817).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 19 Aug 2010 15:16:46 +0100
-
-busybox (1:1.15.3-1ubuntu1) maverick; urgency=low
-
-  * Resynchronise with Debian (LP: #566845).  Remaining changes:
-    - [udeb] Enable chvt, dd conv=notrunc, getopt (and -l), killall,
-      losetup, mktemp, NFS mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - [deb, static] Enable fractional sleep.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - test-bin.patch: Move test and friends to /bin.
-    - Add static-sh alias name for ash, and install /bin/static-sh symlink to
-      busybox in busybox-static.
-    - Use -marm on armel due to gcc thumb2 compilation issue.
-    - rmescapes-stack.patch: Refresh stack pointers after makestrspace in
-      _rmescapes.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 07 Jul 2010 17:52:24 +0100
 
 busybox (1:1.15.3-1) unstable; urgency=low
 
@@ -536,102 +1069,6 @@ busybox (1:1.14.2-1) unstable; urgency=low
 
  -- Bastian Blank <waldi@debian.org>  Sat, 08 Aug 2009 11:14:42 +0200
 
-busybox (1:1.13.3-1ubuntu11) lucid; urgency=low
-
-  * rmescapes-stack.patch: Refresh stack pointers after makestrspace in
-    _rmescapes (backported from dash, although I reinvented it independently
-    too; LP: #567345).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 22 Apr 2010 14:15:15 +0100
-
-busybox (1:1.13.3-1ubuntu10) lucid; urgency=low
-
-  * Rebuild statically linked binary against recent libc.
-
- -- Matthias Klose <doko@ubuntu.com>  Sun, 18 Apr 2010 22:26:24 +0000
-
-busybox (1:1.13.3-1ubuntu9) lucid; urgency=low
-
-  * Using -marm due to gcc thumb2 compile issue (LP: #511197)
-  * Small policy cleanup of control file to make lintian happier
-
- -- David Sugar <david.sugar@canonical.com>  Fri, 22 Jan 2010 08:03:07 -0500
-
-busybox (1:1.13.3-1ubuntu8) lucid; urgency=low
-
-  * add static-sh alias name for ash and install
-    /bin/static-sh symlink busybox in busybox-static (LP: #505887)
-
- -- Michael Vogt <michael.vogt@ubuntu.com>  Mon, 11 Jan 2010 13:43:24 +0100
-
-busybox (1:1.13.3-1ubuntu7) karmic; urgency=low
-
-  * [initramfs] Enable df, for casper (LP: #424731).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 07 Sep 2009 15:40:02 +0100
-
-busybox (1:1.13.3-1ubuntu6) karmic; urgency=low
-
-  * [initramfs] Enable CONFIG_FEATURE_USE_TERMIOS (LP: #268306).
-  * [initramfs] Enable du, for casper (LP: #424731).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 07 Sep 2009 12:46:29 +0100
-
-busybox (1:1.13.3-1ubuntu5) karmic; urgency=low
-
-  * [initramfs] Enable gunzip and gzip (LP: #392218). (gzip is overkill in
-    most respects, but is needed to make the 'gzip' command visible for the
-    benefit of kbd.)
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 03 Aug 2009 10:54:02 +0100
-
-busybox (1:1.13.3-1ubuntu4) karmic; urgency=low
-
-  * printf-errors.patch (update): Set errno to zero on entry to print_direc,
-    as otherwise %c and %s return undefined exit codes.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 25 Jun 2009 18:12:34 +0100
-
-busybox (1:1.13.3-1ubuntu3) karmic; urgency=high
-
-  * [deb, initramfs, static] Enable fractional sleep (thanks, Jean-Louis
-    Dupond; LP: #391299).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 24 Jun 2009 09:02:31 +0100
-
-busybox (1:1.13.3-1ubuntu2) karmic; urgency=low
-
-  * [initramfs] Link dynamically rather than statically. We always have
-    glibc in the initramfs these days.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 23 Jun 2009 10:02:27 +0100
-
-busybox (1:1.13.3-1ubuntu1) karmic; urgency=low
-
-  * Resynchronise with Debian. Remaining changes:
-    - [udeb] Enable chvt, dd conv=notrunc, getopt (and -l), killall,
-      losetup, mktemp, NFS mount, od, ping, stat, and remote syslog.
-    - [deb] Enable mdev.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - mkswap-uuid.patch: Set UUIDs on swap areas.
-    - test-bin.patch: Move test and friends to /bin.
-    - mount-helper-fixes.patch: Add proper support for mount -i (don't use
-      external mount helper), and trivial support for umount -i although
-      busybox umount doesn't support external helpers yet. Fix handling of
-      mount -f and -n.
-    - getopt-long-only.patch: Allow 'getopt -l' to be enabled independently
-      of the whole of CONFIG_GETOPT_LONG, so that it can be enabled more
-      cheaply.
-    - printf-errors.patch: Exit non-zero on conversion errors.
-  * procps-kernel-threads.patch: Drop. We haven't needed this since we
-    rewrote casper as an initramfs-tools module anyway, and the bit of this
-    patch that actually does anything was dropped in 1:1.01-4ubuntu1 so we
-    clearly don't need the rest of it!
-  * [initramfs] Include wc for the benefit of live-initramfs (LP: #387944).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 19 Jun 2009 11:41:15 +0100
-
 busybox (1:1.13.3-1) unstable; urgency=low
 
   * New upstream release.
@@ -643,73 +1080,6 @@ busybox (1:1.13.3-1) unstable; urgency=low
 
  -- Bastian Blank <waldi@debian.org>  Wed, 06 May 2009 13:46:20 +0200
 
-busybox (1:1.10.2-2ubuntu7) jaunty; urgency=low
-
-  * no-byte-swap-compressed-help.patch: Backport r23074 from upstream to fix
-    segfaults on big-endian machines (spotted by Wartan Hachaturow).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 27 Mar 2009 15:23:29 +0000
-
-busybox (1:1.10.2-2ubuntu6) jaunty; urgency=low
-
-  * [udeb] Enable FEATURE_DD_IBS_OBS, so that we can use conv=notrunc while
-    restoring swap UUIDs (LP: #336992).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 03 Mar 2009 12:52:47 +0000
-
-busybox (1:1.10.2-2ubuntu5) jaunty; urgency=low
-
-  * printf-errors.patch: Print a more helpful error message and exit
-    non-zero on conversion errors (LP: #333349).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 23 Feb 2009 15:51:07 +0000
-
-busybox (1:1.10.2-2ubuntu4) jaunty; urgency=low
-
-  * [deb] Enable mdev; we don't use it in Ubuntu ourselves, but some users
-    would like to (LP: #321312).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 28 Jan 2009 10:39:19 +0000
-
-busybox (1:1.10.2-2ubuntu3) jaunty; urgency=low
-
-  * iptunnel-headers.patch: Backport r24253 from upstream SVN to fix build
-    failure due to multiple definition of 'struct iphdr'.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 26 Jan 2009 13:48:12 +0000
-
-busybox (1:1.10.2-2ubuntu2) jaunty; urgency=low
-
-  * [initramfs] Enable stty, for the benefit of ongoing armel bootloader
-    work (LP: #321424).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 26 Jan 2009 11:59:18 +0000
-
-busybox (1:1.10.2-2ubuntu1) jaunty; urgency=low
-
-  * Resynchronise with Debian. Remaining changes:
-    - Enable chvt, getopt, killall, losetup, mktemp, NFS mount, od, ping,
-      stat, and remote syslog for udeb targets.
-    - Enable 'mount -f' and mount helpers for all targets.
-    - Add busybox-initramfs.
-    - mkswap-uuid.patch: Set UUIDs on swap areas.
-    - sleep-fractional.patch: Add support for fractional times.
-    - procps-kernel-threads.patch: Avoid killing kernel threads in init when
-      killing all processes.
-    - test-bin.patch: Move test and friends to /bin.
-    - mount-helper-fixes.patch: Add proper support for mount -i (don't use
-      external mount helper), and trivial support for umount -i although
-      busybox umount doesn't support external helpers yet. Fix handling of
-      mount -f and -n.
-  * Drop busybox-initramfs Breaks, since busybox prefers applets again.
-  * getopt-long-only.patch: Allow 'getopt -l' to be enabled independently of
-    the whole of CONFIG_GETOPT_LONG, so that it can be enabled more cheaply.
-  * Enable 'getopt -l' for udeb targets (LP: #293586).
-  * Tag Ubuntu patches per
-    https://wiki.ubuntu.com/UbuntuDevelopment/PatchTaggingGuidelines.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 06 Nov 2008 17:38:28 +0000
-
 busybox (1:1.10.2-2) unstable; urgency=low
 
   * [deb, static] Again prefer applets and fallback to real executable if it
@@ -718,63 +1088,6 @@ busybox (1:1.10.2-2) unstable; urgency=low
   * [udeb] Don't recompile during installation.
 
  -- Bastian Blank <waldi@debian.org>  Sun, 07 Sep 2008 12:35:52 +0200
-
-busybox (1:1.10.2-1ubuntu6) intrepid; urgency=low
-
-  * debian/config/config.initramfs, debian/config/config.udeb: Enable mount
-    helpers.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 12 Sep 2008 09:26:57 +0100
-
-busybox (1:1.10.2-1ubuntu5) intrepid; urgency=low
-
-  * debian/config/config.*: Enable 'mount -f' across the board, needed by
-    FUSE filesystems (LP: #268123).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 11 Sep 2008 09:51:27 +0100
-
-busybox (1:1.10.2-1ubuntu4) intrepid; urgency=low
-
-  * debian/config/config.udeb: Enable od, for user-setup ecryptfs passphrase
-    generation.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 21 Aug 2008 15:58:09 +0100
-
-busybox (1:1.10.2-1ubuntu3) intrepid; urgency=low
-
-  * Enable Find in busybox-initramfs config since PATH
-    no longer includes /root for casper (LP: #249614)
-
- -- Mario Limonciello <mario_limonciello@dell.com>  Thu, 17 Jul 2008 17:33:18 -0500
-
-busybox (1:1.10.2-1ubuntu2) intrepid; urgency=low
-
-  * Fix mkswap build failure when uuid-dev is not installed.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 11 Jun 2008 21:28:56 +0100
-
-busybox (1:1.10.2-1ubuntu1) intrepid; urgency=low
-
-  * Resynchronise with Debian (LP: #145484). Remaining changes (upstream
-    code changes converted to quilt):
-    - Enable chvt, getopt, killall, losetup, mktemp, NFS mount, ping, stat,
-      and remote syslog for udeb targets.
-    - Add busybox-initramfs.
-    - mkswap-uuid.patch: Set UUIDs on swap areas.
-    - sleep-fractional.patch: Add support for fractional times.
-    - procps-kernel-threads.patch: Avoid killing kernel threads in init when
-      killing all processes.
-    - test-bin.patch: Move test and friends to /bin.
-    - mount-helper-fixes.patch: Add proper support for mount -i (don't use
-      external mount helper), and trivial support for umount -i although
-      busybox umount doesn't support external helpers yet. Fix handling of
-      mount -f and -n.
-  * busybox-initramfs Breaks: initramfs-tools (<< 0.85eubuntu41) and
-    klibc-utils (<< 1.5.9-1), since it now prefers external tools over
-    built-in applets and some changes were needed to tolerate the use of
-    klibc tools.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 11 Jun 2008 18:33:41 +0100
 
 busybox (1:1.10.2-1) unstable; urgency=low
 
@@ -832,136 +1145,12 @@ busybox (1:1.9.1-1) experimental; urgency=low
 
  -- Bastian Blank <waldi@debian.org>  Fri, 15 Feb 2008 16:25:31 +0000
 
-busybox (1:1.1.3-5ubuntu12) hardy; urgency=low
-
-  * Add support for relatime and norelatime mount options (closes: #460824).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 04 Mar 2008 11:02:33 +0000
-
-busybox (1:1.1.3-5ubuntu11) hardy; urgency=low
-
-  * Enable stat in the busybox udeb.  Needed for clear_partitions in
-    partman-target.
-
- -- Evan Dandrea <evand@ubuntu.com>  Mon, 03 Mar 2008 17:25:25 -0500
-
-busybox (1:1.1.3-5ubuntu10) hardy; urgency=low
-
-  [ Matt T. Proud ]
-  * Patch syslogd remote logging implementation to behave actually like
-    sysklogd when the destination host cannot be reached or resolved. In
-    other words, periodically retry resolution and use least-effort
-    transmission techniques (LP: #184126).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 04 Feb 2008 15:33:24 +0000
-
-busybox (1:1.1.3-5ubuntu9) hardy; urgency=low
-
-  * Enable awk in the initramfs, for casper (LP: #159697).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 15 Nov 2007 02:29:59 +0000
-
-busybox (1:1.1.3-5ubuntu8) hardy; urgency=low
-
-  * Include ping in the udeb package per user request.
-
- -- Matt T. Proud <mtp@google.com>  Thu, 01 Nov 2007 21:43:04 +0000
-
-busybox (1:1.1.3-5ubuntu7) gutsy; urgency=low
-
-  * Add support for mount -i (don't use external mount helper), and trivial
-    support for umount -i although busybox umount doesn't support external
-    helpers yet. This should be enough to support mounting FUSE filesystems
-    in d-i (LP: #147617).
-  * Support mount -f even if mtab support isn't compiled in.
-  * Fix handling of mount -f and -n.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 08 Oct 2007 12:57:31 +0100
-
-busybox (1:1.1.3-5ubuntu6) gutsy; urgency=low
-
-  * Disable job control in the initramfs, it can never access the tty
-    so always produces a confusing error message that people think is the
-    real reason they're seeing the initramfs shell at all.  LP: #129612.
-
- -- Scott James Remnant <scott@ubuntu.com>  Wed, 03 Oct 2007 16:59:01 +0100
-
-busybox (1:1.1.3-5ubuntu5) gutsy; urgency=low
-
-  * Move test and friends to /bin (LP: #145382).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 02 Oct 2007 19:52:41 +0100
-
-busybox (1:1.1.3-5ubuntu4) gutsy; urgency=low
-
-  * Fix mount segfault while doing bind/move mounts or remounts, introduced
-    by my external mount helper change (thanks, Ben Collins; LP: #131961).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Sat, 18 Aug 2007 19:06:43 +0100
-
-busybox (1:1.1.3-5ubuntu3) gutsy; urgency=low
-
-  * Enable pidof for the initramfs target.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Sat, 11 Aug 2007 01:06:30 +0100
-
-busybox (1:1.1.3-5ubuntu2) gutsy; urgency=low
-
-  * util-linux/mount.c: Add support for external mount helpers.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 10 Aug 2007 10:47:30 +0100
-
-busybox (1:1.1.3-5ubuntu1) gutsy; urgency=low
-
-  * Resynchronise with Debian. Remaining changes:
-    - Enable chvt, getopt, killall, mktemp, and NFS mount for udeb targets.
-    - Add busybox-initramfs.
-    - mkswap: Set UUIDs on version 1 swap areas.
-    - sleep: Add support for fractional times.
-    - Avoid killing kernel threads in init when killing all processes.
-    - networking/libiproute/ipaddress.c, networking/libiproute/ll_map.c:
-      Define IFLA_*/IFA_* macros removed from the kernel.
-    - util-linux/losetup.c, libbb/loop.c, include/libbb.h, include/usage.h:
-      Add support for 'losetup -f'.
-  * debian/config-udeb: Enable losetup, for future partman-auto-loop work.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 27 Jul 2007 17:59:03 +0100
-
 busybox (1:1.1.3-5) unstable; urgency=low
 
   * debian/config*:
     - Drop devfs support. (closes: #431569)
 
  -- Bastian Blank <waldi@debian.org>  Tue,  3 Jul 2007 15:45:43 +0000
-
-busybox (1:1.1.3-4ubuntu3) gutsy; urgency=low
-
-  * util-linux/losetup.c, libbb/loop.c, include/libbb.h, include/usage.h:
-    Add support for 'losetup -f'.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 04 Jun 2007 15:42:27 +0100
-
-busybox (1:1.1.3-4ubuntu2) gutsy; urgency=low
-
-  * debian/config-initramfs: Enable wget, so that casper can fetch preseed
-    files from the network.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 07 May 2007 09:00:29 +0200
-
-busybox (1:1.1.3-4ubuntu1) gutsy; urgency=low
-
-  * Resynchronise with Debian. Remaining changes:
-    - Enable chvt, getopt, killall, mktemp, and NFS mount for udeb targets.
-    - Add busybox-initramfs.
-    - mkswap: Set UUIDs on version 1 swap areas.
-    - sleep: Add support for fractional times.
-    - Avoid killing kernel threads in init when killing all processes.
-    - networking/libiproute/ipaddress.c, networking/libiproute/ll_map.c:
-      Define IFLA_*/IFA_* macros removed from the kernel.
-    - debian/config-udeb, debian/config-floppy-udeb-linux: Undefine
-      CONFIG_FEATURE_DEVFS.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 27 Apr 2007 17:25:38 +0100
 
 busybox (1:1.1.3-4) unstable; urgency=low
 
@@ -970,34 +1159,6 @@ busybox (1:1.1.3-4) unstable; urgency=low
       (closes: #373704)
 
  -- Bastian Blank <waldi@debian.org>  Sun, 21 Jan 2007 15:29:02 +0000
-
-busybox (1:1.1.3-3ubuntu3) feisty; urgency=low
-
-  * Rebuild for changes in the amd64 toolchain.
-  * Set Ubuntu maintainer address.
-
- -- Matthias Klose <doko@ubuntu.com>  Mon,  5 Mar 2007 01:13:28 +0000
-
-busybox (1:1.1.3-3ubuntu2) feisty; urgency=low
-
-  * networking/libiproute/ipaddress.c, networking/libiproute/ll_map.c:
-    Define IFLA_*/IFA_* macros removed from the kernel; see
-    https://lists.ubuntu.com/archives/ubuntu-devel/2006-November/022171.html.
-  * debian/config-udeb, debian/config-floppy-udeb-linux: Undefine
-    CONFIG_FEATURE_DEVFS (LP: #66220).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 24 Nov 2006 13:14:21 +0000
-
-busybox (1:1.1.3-3ubuntu1) feisty; urgency=low
-
-  * Resynchronise with Debian. Remaining changes:
-    - Enable chvt, getopt, killall, mktemp, and NFS mount for udeb targets.
-    - Add busybox-initramfs.
-    - mkswap: Set UUIDs on version 1 swap areas.
-    - sleep: Add support for fractional times.
-    - Avoid killing kernel threads in init when killing all processes.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Sun, 29 Oct 2006 17:22:35 +0000
 
 busybox (1:1.1.3-3) unstable; urgency=low
 
@@ -1008,41 +1169,12 @@ busybox (1:1.1.3-3) unstable; urgency=low
 
  -- Bastian Blank <waldi@debian.org>  Fri, 18 Aug 2006 22:32:04 +0000
 
-busybox (1:1.1.3-2ubuntu3) edgy; urgency=low
-
-  * util-linux/Makefile.in: Fix CFLAGS handling to apply when compiling
-    objects.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 25 Jul 2006 11:31:24 +0100
-
-busybox (1:1.1.3-2ubuntu2) edgy; urgency=low
-
-  * util-linux/mkswap.c: Set UUIDs on version 1 swap areas.
-  * util-linux/Makefile.in: mkswap needs uuid/uuid.h from e2fsprogs.
-  * e2fsprogs/Makefile.in: Build libuuid if building mkswap.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 21 Jul 2006 16:12:33 +0100
-
-busybox (1:1.1.3-2ubuntu1) edgy; urgency=low
-
-  * Resynchronise with Debian.
-
- -- Anibal Monsalve Salazar <anibal@debian.org>  Tue, 11 Jul 2006 19:21:45 +1000
-
 busybox (1:1.1.3-2) unstable; urgency=low
 
   * coreutils/sort.c:
     - Fix sorting of input which begins with the seperator. (closes: #373704)
 
  -- Bastian Blank <waldi@debian.org>  Thu, 29 Jun 2006 19:36:19 +0000
-
-busybox (1:1.1.3-1ubuntu1) edgy; urgency=low
-
-  * Resynchronise with Debian.
-  * debian/config-initramfs: Redo based on old differences versus
-    debian/config-udeb.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 27 Jun 2006 16:09:13 +0100
 
 busybox (1:1.1.3-1) unstable; urgency=low
 
@@ -1076,25 +1208,6 @@ busybox (1:1.1.2-1) unstable; urgency=low
 
  -- Bastian Blank <waldi@debian.org>  Sun,  7 May 2006 19:31:17 +0000
 
-busybox (1:1.01-4ubuntu2) dapper; urgency=low
-
-  * Remove unnecessary Conflicts/Replaces from busybox-initramfs on other
-    busybox packages, apart from busybox-cvs-initramfs (thanks, Michael
-    Vogt).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue, 21 Mar 2006 14:07:30 +0000
-
-busybox (1:1.01-4ubuntu1) dapper; urgency=low
-
-  * Resynchronise with Debian.
-  * Drop blockdev, and disable losetup for udeb targets again. These were
-    only needed for casper before it was reimplemented as initramfs hooks.
-  * Drop our init changes, also only needed for old casper.
-  * Disable hwclock for udeb targets, only needed by a very obsolete version
-    of tzsetup-udeb.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 18 Jan 2006 01:59:56 +0000
-
 busybox (1:1.01-4) unstable; urgency=low
 
   * debian/config*: (closes: #321304)
@@ -1105,51 +1218,6 @@ busybox (1:1.01-4) unstable; urgency=low
   * util-linux/umount.c: Fix loop for rootfs. (closes: #317062)
 
  -- Bastian Blank <waldi@debian.org>  Sat, 17 Dec 2005 14:35:56 +0100
-
-busybox (1:1.01-3ubuntu7) dapper; urgency=low
-
-  * coreutils/printf.c: Support POSIX leading-quote syntax to convert a
-    character argument to its codepoint.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu,  5 Jan 2006 12:50:09 +0000
-
-busybox (1:1.01-3ubuntu6) dapper; urgency=low
-
-  * debian/config-initramfs: Enable chroot; klibc-utils' version is buggy.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 12 Dec 2005 19:36:22 +0000
-
-busybox (1:1.01-3ubuntu5) dapper; urgency=low
-
-  * Fix infinite loop in umount -a when encountering a rootfs mount point.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri,  9 Dec 2005 11:09:52 +0000
-
-busybox (1:1.01-3ubuntu4) dapper; urgency=low
-
-  * debian/config-initramfs: Enable command editing, history, and tab
-    completion; costs 8 KB and is *so* much nicer.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu,  1 Dec 2005 15:15:58 +0000
-
-busybox (1:1.01-3ubuntu3) dapper; urgency=low
-
-  * Add support for fractional times in sleep(1).
-
- -- Tollef Fog Heen <tfheen@ubuntu.com>  Wed, 30 Nov 2005 14:12:26 +0100
-
-busybox (1:1.01-3ubuntu2) dapper; urgency=low
-
-  * debian/config-initramfs: Enable hostname (see
-    http://lists.ubuntu.com/archives/ubuntu-devel/2005-November/013244.html).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 23 Nov 2005 10:13:56 +0000
-
-busybox (1:1.01-3ubuntu1) dapper; urgency=low
-
-  * Merge Ubuntu changes from busybox-cvs.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed,  9 Nov 2005 20:51:16 -0500
 
 busybox (1:1.01-3) unstable; urgency=low
 
@@ -1219,161 +1287,6 @@ busybox-cvs (20040623-2) UNRELEASED; urgency=low
     - Don't ignore proc on umount -a. (closes: #257625)
 
  -- Bastian Blank <waldi@debian.org>  Wed, 28 Jul 2004 11:20:58 +0200
-
-busybox-cvs (20040623-1ubuntu22) breezy; urgency=low
-
-  * Enable killall for udeb targets; casper needs it to get rid of bterm.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed,  7 Sep 2005 11:24:48 +0100
-
-busybox-cvs (20040623-1ubuntu21) breezy; urgency=low
-
-  * Make bb_full_fd_action return a ssize and -1 on error.  Ubuntu #9213
-
- -- Tollef Fog Heen <tfheen@ubuntu.com>  Fri,  2 Sep 2005 12:07:37 +0200
-
-busybox-cvs (20040623-1ubuntu20) breezy; urgency=low
-
-  * Enable chmod for initramfs.
-
- -- Jeff Bailey <jbailey@ubuntu.com>  Fri, 26 Aug 2005 19:47:42 -0400
-
-busybox-cvs (20040623-1ubuntu19) breezy; urgency=low
-
-  * Add stat from upstream CVS, enable it for initramfs
-
- -- Jeff Bailey <jbailey@ubuntu.com>  Tue,  9 Aug 2005 10:57:05 -0400
-
-busybox-cvs (20040623-1ubuntu18) breezy; urgency=low
-
-  * Build pass for use in the initramfs.
-
- -- Jeff Bailey <jbailey@ubuntu.com>  Wed, 15 Jun 2005 02:44:50 +0000
-
-busybox-cvs (20040623-1ubuntu17) breezy; urgency=low
-
-  * Use DEB_HOST_ARCH_OS and DEB_HOST_ARCH_CPU if available instead of
-    DEB_HOST_GNU_SYSTEM and DEB_HOST_GNU_CPU.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Sun, 29 May 2005 12:47:37 +0100
-
-busybox-cvs (20040623-1ubuntu16) breezy; urgency=low
-
-  * shell/ash.c:
-    - If CONFIG_ASH_MATH_SUPPORT_64 is defined, read numbers in arithmetic
-      expressions with strtoll() rather than strtol().
-    - Make exponentiation 64-bit-safe.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu, 12 May 2005 14:18:58 +0100
-
-busybox-cvs (20040623-1ubuntu15) breezy; urgency=low
-
-  * Another ftbfs with gcc-4.0
-
- -- LaMont Jones <lamont@ubuntu.com>  Tue, 10 May 2005 16:07:19 -0600
-
-busybox-cvs (20040623-1ubuntu14) breezy; urgency=low
-
-  * Fix various gcc-3.4 and gcc-4.0 build problems, based on patches from
-    Andreas Jochens (closes: Ubuntu #8975, #8976).
-  * Enable chvt for udeb targets.
-  * Implement the GNU extension 'T' in sed (closes: Ubuntu #8807).
-
- -- Colin Watson <cjwatson@ubuntu.com>  Thu,  5 May 2005 11:32:00 +0100
-
-busybox-cvs (20040623-1ubuntu13) hoary; urgency=low
-
-  * Enable CONFIG_NFSMOUNT for udeb targets.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Tue,  1 Mar 2005 13:36:21 +0000
-
-busybox-cvs (20040623-1ubuntu12) hoary; urgency=low
-
-  * Enable getopt for udeb targets.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Fri, 28 Jan 2005 09:33:50 +0000
-
-busybox-cvs (20040623-1ubuntu11) hoary; urgency=low
-
-  * Suppress scary console messages when re-execing init
-
- -- Matt Zimmerman <mdz@canonical.com>  Thu, 27 Jan 2005 14:11:12 -0800
-
-busybox-cvs (20040623-1ubuntu10) hoary; urgency=low
-
-  * Colin Watson:
-    - Avoid killing kernel threads in init when killing all processes (closes:
-      Ubuntu #5701)
-  * Matt Zimmerman:
-    - Additional weird fixes to get things working as they should after the
-      above patch
-    - Temporarily disable SIGSTOP/SIGCONT race prevention code, as I'm not
-      certain whether it's working correctly, and have been through too many
-      test cycles already
-
- -- Matt Zimmerman <mdz@ubuntu.com>  Fri, 21 Jan 2005 17:37:52 +0000
-
-busybox-cvs (20040623-1ubuntu9) hoary; urgency=low
-
-  * Add a blockdev implementation, taken from util-linux
-  * Enable CONFIG_LOSETUP in the udeb config
-
- -- Matt Zimmerman <mdz@canonical.com>  Wed,  5 Jan 2005 20:20:51 -0800
-
-busybox-cvs (20040623-1ubuntu8) hoary; urgency=low
-
-  * Change the default USR1 action to be more similar to sysvinit's (re-exec),
-    rather than halting the system
-
- -- Matt Zimmerman <mdz@canonical.com>  Wed,  5 Jan 2005 16:19:48 -0800
-
-busybox-cvs (20040623-1ubuntu7) hoary; urgency=low
-
-  * Enable hwclock for udeb targets.
-
- -- Colin Watson <cjwatson@canonical.com>  Tue,  4 Jan 2005 16:04:20 +0000
-
-busybox-cvs (20040623-1ubuntu6) hoary; urgency=low
-
-  * Disable readlink -f, command, grep -E, mktemp, and getopts in
-    config-floppy-udeb-linux. None of them are needed for the bootfloppy
-    init.
-
- -- Colin Watson <cjwatson@canonical.com>  Fri, 31 Dec 2004 19:29:43 +0000
-
-busybox-cvs (20040623-1ubuntu5) hoary; urgency=low
-
-  * Enable getopts shell builtin for udeb targets; tzsetup needs this.
-
- -- Colin Watson <cjwatson@canonical.com>  Thu, 30 Dec 2004 14:55:24 +0000
-
-busybox-cvs (20040623-1ubuntu4) hoary; urgency=low
-
-  * Enable mktemp for udeb targets, to simplify moving base-config questions
-    to before the first reboot.
-
- -- Colin Watson <cjwatson@canonical.com>  Wed, 29 Dec 2004 22:21:26 +0000
-
-busybox-cvs (20040623-1ubuntu3) hoary; urgency=low
-
-  * Fix df output on large filesystems with long device names (closes:
-    Ubuntu #4875).
-
- -- Colin Watson <cjwatson@canonical.com>  Wed, 22 Dec 2004 05:22:20 +0000
-
-busybox-cvs (20040623-1ubuntu2) hoary; urgency=low
-
-  * Enable 'grep -E' for udeb targets (used by hotplug).
-
- -- Colin Watson <cjwatson@canonical.com>  Wed, 17 Nov 2004 00:57:58 +0000
-
-busybox-cvs (20040623-1ubuntu1) hoary; urgency=low
-
-  * Extensions for hotplug support:
-    - Implement 'readlink -f'. Enable it for all udeb targets and static.
-    - Enable 'command' shell builtin.
-
- -- Colin Watson <cjwatson@canonical.com>  Tue, 16 Nov 2004 11:34:37 +0000
 
 busybox-cvs (20040623-1) unstable; urgency=low
 
@@ -1641,7 +1554,7 @@ busybox-cvs (0.60.99.cvs20030426-10) unstable; urgency=low
 busybox-cvs (0.60.99.cvs20030426-9) unstable; urgency=low
 
   * modutils/depmod.c
-    - fix base_dir for modules.dep 
+    - fix base_dir for modules.dep
 
  -- Bastian Blank <waldi@debian.org>  Sat, 07 Jun 2003 14:52:54 +0200
 
@@ -1777,13 +1690,13 @@ busybox-cvs (0.60.99.cvs20030114-1) unstable; urgency=low
 busybox-cvs (0.60.99.cvs20030105-1) unstable; urgency=low
 
   * Fix ip command build failure on ia64 (Closes: #172580
-  * Dont build with BSD partition table support in fdisk, fails on m68k 
+  * Dont build with BSD partition table support in fdisk, fails on m68k
 
  -- Glenn McGrath <bug1@debian.org>  Sun,  5 Jan 2003 12:48:05 +1100
 
 busybox-cvs (0.60.99.cvs20030104-2) unstable; urgency=low
 
-  * floppy-retriever needs the cut command in the udeb 
+  * floppy-retriever needs the cut command in the udeb
 
  -- Glenn McGrath <bug1@debian.org>  Sat,  4 Jan 2003 17:13:05 +1100
 
@@ -1921,7 +1834,7 @@ busybox (1:0.51-4) unstable; urgency=low
 busybox (1:0.51-3) unstable; urgency=low
 
   * This is the "I am an idiot" release.
-  * Make cp and mv work again (closes: #97290) 
+  * Make cp and mv work again (closes: #97290)
   * Fix the version number.
 
  -- Erik Andersen <andersee@debian.org>  Sat, 12 May 2001 17:35:58 -0600
@@ -1942,13 +1855,13 @@ busybox (0.51-1) unstable; urgency=low
     for complete details)
   * Force USE_SYSTEM_PWD_GRP=false, so busybox bypasses
     the glibc NSS libraries. (closes: #93362)
-  * Fixed a bug in sed's address range handling (closes: #91758) 
+  * Fixed a bug in sed's address range handling (closes: #91758)
   * Removed irrelevant cruft from the bottem of debian/changelog
 
  -- Erik Andersen <andersee@debian.org>  Tue, 10 Apr 2001 14:07:29 -0600
 
 busybox (0.50-2) unstable; urgency=low
-  
+
   * Enabled freeramdisk and pivot_root in the udeb (closes: #91336)
   * Disabled lash (the busybox shell) in the udeb (closes: #91337)
   * fixed a bug in syslog, a problem with rebooting when booted as
@@ -1958,7 +1871,7 @@ busybox (0.50-2) unstable; urgency=low
 
 
 busybox (0.50-2) unstable; urgency=low
-  
+
   * Enabled freeramdisk and pivot_root in the udeb (closes: #91336)
   * Disabled lash (the busybox shell) in the udeb (closes: #91337)
   * fixed a bug in syslog, a problem with rebooting when booted as
@@ -1987,7 +1900,7 @@ busybox (0.49-1) unstable; urgency=low
 busybox (0.48-1) unstable; urgency=low
 
   * Lots more source updates and bug fixes.  See changelog for details.
-  * Now includes .udeb support for the debian-installer.  The .udeb 
+  * Now includes .udeb support for the debian-installer.  The .udeb
     probably needs some more work, but this should be a good start.
 
  -- Erik Andersen <andersee@debian.org>  Wed, 13 Dec 2000 08:36:07 -0700
@@ -2006,15 +1919,14 @@ busybox (0.46-1) unstable; urgency=low
 
 busybox (0.45-1) unstable; urgency=low
 
-  * First attempt at packaging BusyBox as a .deb.  This has been in 
+  * First attempt at packaging BusyBox as a .deb.  This has been in
     in the Debian boot-floppies CVS tree forever.  Hopefully, having it as a
     standalone app will make life easier for me, the debian-installer team, and
     everyone else as well...
-  * I have created a busybox-static that can be used as a rescue shell when you 
+  * I have created a busybox-static that can be used as a rescue shell when you
     hose your system.  Just invoke "busybox sh" to fir up the shell.  This has
     every app provided by busybox staically linked in.  There have been several
     times in the past that I would have loved to have this sitting on my system
     (i.e. when libc gets screwed up.)
 
  -- Erik Andersen <andersee@debian.org>  Tue, 27 Jun 2000 12:26:41 -0600
-

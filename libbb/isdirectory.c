@@ -7,30 +7,23 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-
-#include <sys/stat.h>
 #include "libbb.h"
 
 /*
  * Return TRUE if fileName is a directory.
  * Nonexistent files return FALSE.
  */
-int FAST_FUNC is_directory(const char *fileName, int followLinks, struct stat *statBuf)
+int FAST_FUNC is_directory(const char *fileName, int followLinks)
 {
 	int status;
-	struct stat astatBuf;
-
-	if (statBuf == NULL) {
-		/* use auto stack buffer */
-		statBuf = &astatBuf;
-	}
+	struct stat statBuf;
 
 	if (followLinks)
-		status = stat(fileName, statBuf);
+		status = stat(fileName, &statBuf);
 	else
-		status = lstat(fileName, statBuf);
+		status = lstat(fileName, &statBuf);
 
-	status = (status == 0 && S_ISDIR(statBuf->st_mode));
+	status = (status == 0 && S_ISDIR(statBuf.st_mode));
 
 	return status;
 }

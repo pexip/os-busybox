@@ -6,7 +6,6 @@
  *
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
-
 #include <sys/types.h>
 #include <sys/socket.h> /* netinet/in.h needs it */
 #include <netinet/in.h>
@@ -14,13 +13,34 @@
 #include <sys/un.h>
 #include "libbb.h"
 
+int FAST_FUNC setsockopt_int(int fd, int level, int optname, int optval)
+{
+	return setsockopt(fd, level, optname, &optval, sizeof(int));
+}
+int FAST_FUNC setsockopt_1(int fd, int level, int optname)
+{
+	return setsockopt_int(fd, level, optname, 1);
+}
+int FAST_FUNC setsockopt_SOL_SOCKET_int(int fd, int optname, int optval)
+{
+	return setsockopt_int(fd, SOL_SOCKET, optname, optval);
+}
+int FAST_FUNC setsockopt_SOL_SOCKET_1(int fd, int optname)
+{
+	return setsockopt_SOL_SOCKET_int(fd, optname, 1);
+}
+
 void FAST_FUNC setsockopt_reuseaddr(int fd)
 {
-	setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &const_int_1, sizeof(const_int_1));
+	setsockopt_SOL_SOCKET_1(fd, SO_REUSEADDR);
 }
 int FAST_FUNC setsockopt_broadcast(int fd)
 {
-	return setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &const_int_1, sizeof(const_int_1));
+	return setsockopt_SOL_SOCKET_1(fd, SO_BROADCAST);
+}
+int FAST_FUNC setsockopt_keepalive(int fd)
+{
+	return setsockopt_SOL_SOCKET_1(fd, SO_KEEPALIVE);
 }
 
 #ifdef SO_BINDTODEVICE
@@ -134,16 +154,18 @@ int FAST_FUNC get_nport(const struct sockaddr *sa)
 	return -1;
 }
 
-void FAST_FUNC set_nport(len_and_sockaddr *lsa, unsigned port)
+void FAST_FUNC set_nport(struct sockaddr *sa, unsigned port)
 {
 #if ENABLE_FEATURE_IPV6
-	if (lsa->u.sa.sa_family == AF_INET6) {
-		lsa->u.sin6.sin6_port = port;
+	if (sa->sa_family == AF_INET6) {
+		struct sockaddr_in6 *sin6 = (void*) sa;
+		sin6->sin6_port = port;
 		return;
 	}
 #endif
-	if (lsa->u.sa.sa_family == AF_INET) {
-		lsa->u.sin.sin_port = port;
+	if (sa->sa_family == AF_INET) {
+		struct sockaddr_in *sin = (void*) sa;
+		sin->sin_port = port;
 		return;
 	}
 	/* What? UNIX socket? IPX?? :) */
@@ -169,7 +191,7 @@ IF_NOT_FEATURE_IPV6(sa_family_t af = AF_INET;)
 	const char *cp;
 	struct addrinfo hint;
 
-	if (ENABLE_FEATURE_UNIX_LOCAL && strncmp(host, "local:", 6) == 0) {
+	if (ENABLE_FEATURE_UNIX_LOCAL && is_prefixed_with(host, "local:")) {
 		struct sockaddr_un *sun;
 
 		r = xzalloc(LSA_LEN_SIZE + sizeof(struct sockaddr_un));
@@ -255,7 +277,7 @@ IF_NOT_FEATURE_IPV6(sa_family_t af = AF_INET;)
 
 	memset(&hint, 0 , sizeof(hint));
 	hint.ai_family = af;
-	/* Needed. Or else we will get each address thrice (or more)
+	/* Need SOCK_STREAM, or else we get each address thrice (or more)
 	 * for each possible socket type (tcp,udp,raw...): */
 	hint.ai_socktype = SOCK_STREAM;
 	hint.ai_flags = ai_flags & ~DIE_ON_ERROR;
@@ -283,9 +305,10 @@ IF_NOT_FEATURE_IPV6(sa_family_t af = AF_INET;)
 	memcpy(&r->u.sa, used_res->ai_addr, used_res->ai_addrlen);
 
  set_port:
-	set_nport(r, htons(port));
+	set_nport(&r->u.sa, htons(port));
  ret:
-	freeaddrinfo(result);
+	if (result)
+		freeaddrinfo(result);
 	return r;
 }
 #if !ENABLE_FEATURE_IPV6
@@ -319,26 +342,28 @@ len_and_sockaddr* FAST_FUNC xdotted2sockaddr(const char *host, int port)
 	return str2sockaddr(host, port, AF_UNSPEC, AI_NUMERICHOST | DIE_ON_ERROR);
 }
 
-#undef xsocket_type
-int FAST_FUNC xsocket_type(len_and_sockaddr **lsap, IF_FEATURE_IPV6(int family,) int sock_type)
+int FAST_FUNC xsocket_type(len_and_sockaddr **lsap, int family, int sock_type)
 {
-	IF_NOT_FEATURE_IPV6(enum { family = AF_INET };)
 	len_and_sockaddr *lsa;
 	int fd;
 	int len;
 
-#if ENABLE_FEATURE_IPV6
 	if (family == AF_UNSPEC) {
+#if ENABLE_FEATURE_IPV6
 		fd = socket(AF_INET6, sock_type, 0);
 		if (fd >= 0) {
 			family = AF_INET6;
 			goto done;
 		}
+#endif
 		family = AF_INET;
 	}
-#endif
+
 	fd = xsocket(family, sock_type, 0);
+
 	len = sizeof(struct sockaddr_in);
+	if (family == AF_UNIX)
+		len = sizeof(struct sockaddr_un);
 #if ENABLE_FEATURE_IPV6
 	if (family == AF_INET6) {
  done:
@@ -354,7 +379,7 @@ int FAST_FUNC xsocket_type(len_and_sockaddr **lsap, IF_FEATURE_IPV6(int family,)
 
 int FAST_FUNC xsocket_stream(len_and_sockaddr **lsap)
 {
-	return xsocket_type(lsap, IF_FEATURE_IPV6(AF_UNSPEC,) SOCK_STREAM);
+	return xsocket_type(lsap, AF_UNSPEC, SOCK_STREAM);
 }
 
 static int create_and_bind_or_die(const char *bindaddr, int port, int sock_type)
@@ -367,8 +392,8 @@ static int create_and_bind_or_die(const char *bindaddr, int port, int sock_type)
 		/* user specified bind addr dictates family */
 		fd = xsocket(lsa->u.sa.sa_family, sock_type, 0);
 	} else {
-		fd = xsocket_type(&lsa, IF_FEATURE_IPV6(AF_UNSPEC,) sock_type);
-		set_nport(lsa, htons(port));
+		fd = xsocket_type(&lsa, AF_UNSPEC, sock_type);
+		set_nport(&lsa->u.sa, htons(port));
 	}
 	setsockopt_reuseaddr(fd);
 	xbind(fd, &lsa->u.sa, lsa->len);
@@ -470,12 +495,15 @@ char* FAST_FUNC xmalloc_sockaddr2hostonly_noport(const struct sockaddr *sa)
 {
 	return sockaddr2str(sa, NI_NAMEREQD | IGNORE_PORT);
 }
+#ifndef NI_NUMERICSCOPE
+# define NI_NUMERICSCOPE 0
+#endif
 char* FAST_FUNC xmalloc_sockaddr2dotted(const struct sockaddr *sa)
 {
-	return sockaddr2str(sa, NI_NUMERICHOST);
+	return sockaddr2str(sa, NI_NUMERICHOST | NI_NUMERICSCOPE);
 }
 
 char* FAST_FUNC xmalloc_sockaddr2dotted_noport(const struct sockaddr *sa)
 {
-	return sockaddr2str(sa, NI_NUMERICHOST | IGNORE_PORT);
+	return sockaddr2str(sa, NI_NUMERICHOST | NI_NUMERICSCOPE | IGNORE_PORT);
 }
