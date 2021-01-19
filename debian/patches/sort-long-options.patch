@@ -1,0 +1,66 @@
+diff --git a/coreutils/sort.c b/coreutils/sort.c
+index f04c606..a889eca 100644
+--- a/coreutils/sort.c
++++ b/coreutils/sort.c
+@@ -29,6 +29,11 @@
+ //config:	The SuSv3 sort standard is available at:
+ //config:	http://www.opengroup.org/onlinepubs/007904975/utilities/sort.html
+ //config:
++//config:config FEATURE_SORT_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on SORT && LONG_OPTS
++//config:
+ //config:config FEATURE_SORT_OPTIMIZE_MEMORY
+ //config:	bool "Use less memory (but might be slower)"
+ //config:	default n   # defaults to N since we are size-paranoid tribe
+@@ -126,6 +131,30 @@ static const char sort_opt_str[] ALIGN1 = "^"
+  */
+ #define OPT_STR (sort_opt_str + 1)
+ 
++#if ENABLE_FEATURE_SORT_LONG_OPTIONS
++static const char *sort_long_opts =
++	"numeric-sort\0"          No_argument       "n"
++	"general-numeric-sort\0"  No_argument       "g"
++	"month-sort\0"            No_argument       "M"
++	"version-sort\0"          No_argument       "V"
++	"unique\0"                No_argument       "u"
++	"check\0"                 No_argument       "c"
++	"stable\0"                No_argument       "s"
++	"zero-terminated\0"       No_argument       "z"
++	"ignore-leading-blanks\0" No_argument       "b"
++	"reverse\0"               No_argument       "r"
++	"dictionary-order\0"      No_argument       "d"
++	"ignore-case\0"           No_argument       "f"
++	"ignore-nonprinting\0"    No_argument       "i"
++	"merge\0"                 No_argument       "m"
++	"buffer-size\0"           Required_argument "S"
++	"temporary-directory\0"   Required_argument "T"
++	"output\0"                Required_argument "o"
++	"key\0"                   Required_argument "k"
++	"field-separator\0"       Required_argument "t"
++	;
++#endif
++
+ #if ENABLE_FEATURE_SORT_BIG
+ static char key_separator;
+ 
+@@ -428,10 +457,18 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
+ 	xfunc_error_retval = 2;
+ 
+ 	/* Parse command line options */
++#if ENABLE_FEATURE_SORT_LONG_OPTIONS
++	opts = getopt32long(argv,
++			sort_opt_str,
++			sort_long_opts,
++			&str_ignored, &str_ignored, &str_o, &lst_k, &str_t
++	);
++#else
+ 	opts = getopt32(argv,
+ 			sort_opt_str,
+ 			&str_ignored, &str_ignored, &str_o, &lst_k, &str_t
+ 	);
++#endif
+ #if ENABLE_FEATURE_SORT_OPTIMIZE_MEMORY
+ 	/* Can drop dups only if -u but no "complicating" options,
+ 	 * IOW: if we do a full line compares. Safe options:
