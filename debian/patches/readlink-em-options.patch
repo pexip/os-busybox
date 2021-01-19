@@ -1,0 +1,80 @@
+diff --git a/coreutils/readlink.c b/coreutils/readlink.c
+index 09d69df..6dd6d0e 100644
+--- a/coreutils/readlink.c
++++ b/coreutils/readlink.c
+@@ -25,17 +25,51 @@
+ //kbuild:lib-$(CONFIG_READLINK) += readlink.o
+ 
+ //usage:#define readlink_trivial_usage
+-//usage:	IF_FEATURE_READLINK_FOLLOW("[-fnv] ") "FILE"
++//usage:	IF_FEATURE_READLINK_FOLLOW("[-efmnv] ") "FILE"
+ //usage:#define readlink_full_usage "\n\n"
+ //usage:       "Display the value of a symlink"
+ //usage:	IF_FEATURE_READLINK_FOLLOW( "\n"
++//usage:     "\n	-e	Canonicalize by following all symlinks (all components must exist)"
+ //usage:     "\n	-f	Canonicalize by following all symlinks"
++//usage:     "\n	-m	Canonicalize by following all symlinks (allowing missing components)"
+ //usage:     "\n	-n	Don't add newline"
+ //usage:     "\n	-v	Verbose"
+ //usage:	)
+ 
+ #include "libbb.h"
+ 
++#if ENABLE_FEATURE_READLINK_FOLLOW
++static char* readlink_m(const char *path)
++{
++	char *buf, *tail = NULL;
++
++	errno = 0;
++	buf = xmalloc_realpath(path);
++	while (!buf && errno == ENOENT) {
++		char *new_tail = strrchr(path, '/');
++		if (tail) {
++			*tail = '/';
++		}
++		if (new_tail) {
++			*new_tail = '\0';
++			tail = new_tail;
++			buf = xmalloc_realpath(path);
++		} else {
++			break;
++		}
++	}
++
++	if (buf && !errno && tail) {
++		unsigned len = strlen(buf);
++		buf = xrealloc(buf, len + strlen(tail + 1) + 2);
++		buf[len++] = '/';
++		strcpy(buf + len, tail + 1);
++	}
++
++	return buf;
++}
++#endif
++
+ /*
+  * # readlink --version
+  * readlink (GNU coreutils) 6.10
+@@ -71,7 +105,8 @@ int readlink_main(int argc UNUSED_PARAM, char **argv)
+ 	IF_FEATURE_READLINK_FOLLOW(
+ 		unsigned opt;
+ 		/* We need exactly one non-option argument.  */
+-		opt = getopt32(argv, "^" "fnvsq" "\0" "=1");
++		/* f/e/m are mutually exclusive */
++		opt = getopt32(argv, "^" "fnvsqem" "\0" "=1:e--fm:f--em:m--ef");
+ 		fname = argv[optind];
+ 	)
+ 	IF_NOT_FEATURE_READLINK_FOLLOW(
+@@ -87,6 +122,12 @@ int readlink_main(int argc UNUSED_PARAM, char **argv)
+ 	/* NOFORK: only one alloc is allowed; must free */
+ 	if (opt & 1) { /* -f */
+ 		buf = xmalloc_realpath_coreutils(fname);
++	} else if (opt & 32) { /* -e */
++		buf = xmalloc_realpath(fname);
++#if ENABLE_FEATURE_READLINK_FOLLOW
++	} else if (opt & 64) { /* -m */
++		buf = readlink_m(fname);
++#endif
+ 	} else {
+ 		buf = xmalloc_readlink_or_warn(fname);
+ 	}
