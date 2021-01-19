@@ -1,0 +1,41 @@
+diff --git a/coreutils/mktemp.c b/coreutils/mktemp.c
+index 5393320..e2daab0 100644
+--- a/coreutils/mktemp.c
++++ b/coreutils/mktemp.c
+@@ -33,6 +33,11 @@
+ //config:	default y
+ //config:	help
+ //config:	mktemp is used to create unique temporary files
++//config:
++//config:config FEATURE_MKTEMP_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on MKTEMP && LONG_OPTS
+ 
+ //applet:IF_MKTEMP(APPLET_NOEXEC(mktemp, mktemp, BB_DIR_BIN, BB_SUID_DROP, mktemp))
+ 
+@@ -73,12 +78,24 @@ int mktemp_main(int argc UNUSED_PARAM, char **argv)
+ 		OPT_p = 1 << 3,
+ 		OPT_u = 1 << 4,
+ 	};
++#if ENABLE_FEATURE_MKTEMP_LONG_OPTIONS
++	const char *mktemp_long_opts =
++		"directory\0" No_argument       "d"
++		"quiet\0"     No_argument       "q"
++		"tmpdir\0"    Optional_argument "p"
++		"dry-run\0"   No_argument       "u"
++		;
++#endif
+ 
+ 	path = getenv("TMPDIR");
+ 	if (!path || path[0] == '\0')
+ 		path = "/tmp";
+ 
++#if ENABLE_FEATURE_MKTEMP_LONG_OPTIONS
++	opts = getopt32long(argv, "^" "dqtp:u" "\0" "?1", mktemp_long_opts, &path);
++#else
+ 	opts = getopt32(argv, "^" "dqtp:u" "\0" "?1"/*1 arg max*/, &path);
++#endif
+ 
+ 	chp = argv[optind];
+ 	if (!chp) {
