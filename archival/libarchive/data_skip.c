@@ -2,9 +2,8 @@
 /*
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-
 #include "libbb.h"
-#include "archive.h"
+#include "bb_archive.h"
 
 void FAST_FUNC data_skip(archive_handle_t *archive_handle)
 {

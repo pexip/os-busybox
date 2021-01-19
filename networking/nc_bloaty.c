@@ -48,6 +48,12 @@
  * - TCP connects from wrong ip/ports (if peer ip:port is specified
  *   on the command line, but accept() says that it came from different addr)
  *   are closed, but we don't exit - we continue to listen/accept.
+ * Since bbox 1.22:
+ * - nc exits when _both_ stdin and network are closed.
+ *   This makes these two commands:
+ *    echo "Yes" | nc 127.0.0.1 1234
+ *    echo "no" | nc -lp 1234
+ *   exchange their data _and exit_ instead of being stuck.
  */
 
 /* done in nc.c: #include "libbb.h" */
@@ -60,10 +66,15 @@
 //usage:       "nc [OPTIONS] -l -p PORT [HOST] [PORT]  - listen"
 //usage:	)
 //usage:#define nc_full_usage "\n\n"
-//usage:       "Options:"
-//usage:     "\n	-e PROG	Run PROG after connect (must be last)"
+//usage:       "	-e PROG	Run PROG after connect (must be last)"
 //usage:	IF_NC_SERVER(
 //usage:     "\n	-l	Listen mode, for inbound connects"
+//usage:     "\n	-lk	With -e, provides persistent server"
+/* -ll does the same as -lk, but its our extension, while -k is BSD'd,
+ * presumably more widely known. Therefore we advertise it, not -ll.
+ * I would like to drop -ll support, but our "small" nc supports it,
+ * and Rob uses it.
+ */
 //usage:	)
 //usage:     "\n	-p PORT	Local port"
 //usage:     "\n	-s ADDR	Local address"
@@ -116,6 +127,7 @@ struct globals {
 	unsigned wrote_out;          /* total stdout bytes */
 	unsigned wrote_net;          /* total net bytes */
 #endif
+	char *proggie0saved;
 	/* ouraddr is never NULL and goes through three states as we progress:
 	 1 - local address before bind (IP/port possibly zero)
 	 2 - local address after bind (port is nonzero)
@@ -128,9 +140,6 @@ struct globals {
 
 	jmp_buf jbuf;                /* timer crud */
 
-	/* will malloc up the following globals: */
-	fd_set ding1;                /* for select loop */
-	fd_set ding2;
 	char bigbuf_in[BIGSIZ];      /* data buffers */
 	char bigbuf_net[BIGSIZ];
 };
@@ -142,8 +151,6 @@ struct globals {
 #define themaddr   (G.themaddr  )
 #define remend     (G.remend    )
 #define jbuf       (G.jbuf      )
-#define ding1      (G.ding1     )
-#define ding2      (G.ding2     )
 #define bigbuf_in  (G.bigbuf_in )
 #define bigbuf_net (G.bigbuf_net)
 #define o_verbose  (G.o_verbose )
@@ -160,26 +167,21 @@ struct globals {
 
 /* Must match getopt32 call! */
 enum {
-	OPT_h = (1 << 0),
-	OPT_n = (1 << 1),
-	OPT_p = (1 << 2),
-	OPT_s = (1 << 3),
-	OPT_u = (1 << 4),
-	OPT_v = (1 << 5),
-	OPT_w = (1 << 6),
-	OPT_l = (1 << 7) * ENABLE_NC_SERVER,
-	OPT_i = (1 << (7+ENABLE_NC_SERVER)) * ENABLE_NC_EXTRA,
-	OPT_o = (1 << (8+ENABLE_NC_SERVER)) * ENABLE_NC_EXTRA,
-	OPT_z = (1 << (9+ENABLE_NC_SERVER)) * ENABLE_NC_EXTRA,
+	OPT_n = (1 << 0),
+	OPT_p = (1 << 1),
+	OPT_s = (1 << 2),
+	OPT_u = (1 << 3),
+	OPT_v = (1 << 4),
+	OPT_w = (1 << 5),
+	OPT_l = (1 << 6) * ENABLE_NC_SERVER,
+	OPT_k = (1 << 7) * ENABLE_NC_SERVER,
+	OPT_i = (1 << (6+2*ENABLE_NC_SERVER)) * ENABLE_NC_EXTRA,
+	OPT_o = (1 << (7+2*ENABLE_NC_SERVER)) * ENABLE_NC_EXTRA,
+	OPT_z = (1 << (8+2*ENABLE_NC_SERVER)) * ENABLE_NC_EXTRA,
 };
 
 #define o_nflag   (option_mask32 & OPT_n)
 #define o_udpmode (option_mask32 & OPT_u)
-#if ENABLE_NC_SERVER
-#define o_listen  (option_mask32 & OPT_l)
-#else
-#define o_listen  0
-#endif
 #if ENABLE_NC_EXTRA
 #define o_ofile   (option_mask32 & OPT_o)
 #define o_zero    (option_mask32 & OPT_z)
@@ -264,12 +266,13 @@ Debug("findline returning whole thing: %d", siz);
 static int doexec(char **proggie) NORETURN;
 static int doexec(char **proggie)
 {
+	if (G.proggie0saved)
+		proggie[0] = G.proggie0saved;
 	xmove_fd(netfd, 0);
 	dup2(0, 1);
 	/* dup2(0, 2); - do we *really* want this? NO!
 	 * exec'ed prog can do it yourself, if needed */
-	execvp(proggie[0], proggie);
-	bb_perror_msg_and_die("can't execute '%s'", proggie[0]);
+	BB_EXECVP_or_die(proggie);
 }
 
 /* connect_w_timeout:
@@ -299,7 +302,7 @@ static int connect_w_timeout(int fd)
  incoming and returns an open connection *from* someplace.  If we were
  given host/port args, any connections from elsewhere are rejected.  This
  in conjunction with local-address binding should limit things nicely... */
-static void dolisten(void)
+static void dolisten(int is_persistent, char **proggie)
 {
 	int rr;
 
@@ -372,6 +375,7 @@ create new one, and bind() it. TODO */
 			xconnect(netfd, &remend.u.sa, ouraddr->len);
 	} else {
 		/* TCP */
+ another:
 		arm(o_wait); /* wrap this in a timer, too; 0 = forever */
 		if (setjmp(jbuf) == 0) {
  again:
@@ -387,10 +391,10 @@ create new one, and bind() it. TODO */
 				if (port == 0) {
 					/* "nc -nl -p LPORT RHOST" (w/o RPORT!):
 					 * we should accept any remote port */
-					set_nport(&remend, 0); /* blot out remote port# */
+					set_nport(&remend.u.sa, 0); /* blot out remote port# */
 				}
 				r = memcmp(&remend.u.sa, &themaddr->u.sa, remend.len);
-				set_nport(&remend, sv_port); /* restore */
+				set_nport(&remend.u.sa, sv_port); /* restore */
 				if (r != 0) {
 					/* nc 1.10 bails out instead, and its error message
 					 * is not suppressed by o_verbose */
@@ -406,6 +410,19 @@ create new one, and bind() it. TODO */
 			unarm();
 		} else
 			bb_error_msg_and_die("timeout");
+
+		if (is_persistent && proggie) {
+			/* -l -k -e PROG */
+			signal(SIGCHLD, SIG_IGN); /* no zombies please */
+			if (xvfork() != 0) {
+				/* parent: go back and accept more connections */
+				close(rr);
+				goto another;
+			}
+			/* child */
+			signal(SIGCHLD, SIG_DFL);
+		}
+
 		xmove_fd(rr, netfd); /* dump the old socket, here's our new one */
 		/* find out what address the connection was *to* on our end, in case we're
 		 doing a listen-on-any on a multihomed machine.  This allows one to
@@ -430,8 +447,7 @@ create new one, and bind() it. TODO */
 
 		rr = getsockopt(netfd, IPPROTO_IP, IP_OPTIONS, optbuf, &x);
 		if (rr >= 0 && x) {    /* we've got options, lessee em... */
-			bin2hex(bigbuf_net, optbuf, x);
-			bigbuf_net[2*x] = '\0';
+			*bin2hex(bigbuf_net, optbuf, x) = '\0';
 			fprintf(stderr, "IP options: %s\n", bigbuf_net);
 		}
 #endif
@@ -443,7 +459,7 @@ create new one, and bind() it. TODO */
 	 so I don't feel bad.
 	 The *real* question is why BFD sockets wasn't designed to allow listens for
 	 connections *from* specific hosts/ports, instead of requiring the caller to
-	 accept the connection and then reject undesireable ones by closing.
+	 accept the connection and then reject undesirable ones by closing.
 	 In other words, we need a TCP MSG_PEEK. */
 	/* bbox: removed most of it */
 		lcladdr = xmalloc_sockaddr2dotted(&ouraddr->u.sa);
@@ -456,6 +472,9 @@ create new one, and bind() it. TODO */
 		if (!o_nflag)
 			free(remhostname);
 	}
+
+	if (proggie)
+		doexec(proggie);
 }
 
 /* udptest:
@@ -483,11 +502,11 @@ static int udptest(void)
 	/* use the tcp-ping trick: try connecting to a normally refused port, which
 	 causes us to block for the time that SYN gets there and RST gets back.
 	 Not completely reliable, but it *does* mostly work. */
-	/* Set a temporary connect timeout, so packet filtration doesnt cause
+	/* Set a temporary connect timeout, so packet filtration doesn't cause
 	 us to hang forever, and hit it */
 		o_wait = 5;                     /* enough that we'll notice?? */
 		rr = xsocket(ouraddr->u.sa.sa_family, SOCK_STREAM, 0);
-		set_nport(themaddr, htons(SLEAZE_PORT));
+		set_nport(&themaddr->u.sa, htons(SLEAZE_PORT));
 		connect_w_timeout(rr);
 		/* don't need to restore themaddr's port, it's not used anymore */
 		close(rr);
@@ -563,76 +582,72 @@ void oprint(int direction, unsigned char *p, unsigned bc);
 #endif
 
 /* readwrite:
- handle stdin/stdout/network I/O.  Bwahaha!! -- the select loop from hell.
+ handle stdin/stdout/network I/O.  Bwahaha!! -- the i/o loop from hell.
  In this instance, return what might become our exit status. */
 static int readwrite(void)
 {
-	int rr;
 	char *zp = zp; /* gcc */  /* stdin buf ptr */
 	char *np = np;            /* net-in buf ptr */
 	unsigned rzleft;
 	unsigned rnleft;
 	unsigned netretry;              /* net-read retry counter */
-	unsigned wretry;                /* net-write sanity counter */
-	unsigned wfirst;                /* one-shot flag to skip first net read */
+	unsigned fds_open;
 
-	/* if you don't have all this FD_* macro hair in sys/types.h, you'll have to
-	 either find it or do your own bit-bashing: *ding1 |= (1 << fd), etc... */
-	FD_SET(netfd, &ding1);                /* global: the net is open */
+	struct pollfd pfds[2];
+	pfds[0].fd = STDIN_FILENO;
+	pfds[0].events = POLLIN;
+	pfds[1].fd = netfd;
+	pfds[1].events = POLLIN;
+
+	fds_open = 2;
 	netretry = 2;
-	wfirst = 0;
 	rzleft = rnleft = 0;
 	if (o_interval)
 		sleep(o_interval);                /* pause *before* sending stuff, too */
 
-	errno = 0;                        /* clear from sleep, close, whatever */
-	/* and now the big ol' select shoveling loop ... */
-	while (FD_ISSET(netfd, &ding1)) {        /* i.e. till the *net* closes! */
-		wretry = 8200;                        /* more than we'll ever hafta write */
-		if (wfirst) {                        /* any saved stdin buffer? */
-			wfirst = 0;                        /* clear flag for the duration */
-			goto shovel;                        /* and go handle it first */
-		}
-		ding2 = ding1;                        /* FD_COPY ain't portable... */
-	/* some systems, notably linux, crap into their select timers on return, so
-	 we create a expendable copy and give *that* to select.  */
+	/* and now the big ol' shoveling loop ... */
+	/* nc 1.10 has "while (FD_ISSET(netfd)" here */
+	while (fds_open) {
+		int rr;
+		int poll_tmout_ms;
+		unsigned wretry = 8200;               /* net-write sanity counter */
+
+		poll_tmout_ms = -1;
 		if (o_wait) {
-			struct timeval tmp_timer;
-			tmp_timer.tv_sec = o_wait;
-			tmp_timer.tv_usec = 0;
-		/* highest possible fd is netfd (3) */
-			rr = select(netfd+1, &ding2, NULL, NULL, &tmp_timer);
-		} else
-			rr = select(netfd+1, &ding2, NULL, NULL, NULL);
+			poll_tmout_ms = INT_MAX;
+			if (o_wait < INT_MAX / 1000)
+				poll_tmout_ms = o_wait * 1000;
+		}
+		rr = poll(pfds, 2, poll_tmout_ms);
 		if (rr < 0 && errno != EINTR) {                /* might have gotten ^Zed, etc */
-			holler_perror("select");
+			holler_perror("poll");
 			close(netfd);
 			return 1;
 		}
 	/* if we have a timeout AND stdin is closed AND we haven't heard anything
 	 from the net during that time, assume it's dead and close it too. */
 		if (rr == 0) {
-			if (!FD_ISSET(STDIN_FILENO, &ding1))
+			if (!pfds[0].revents) {
 				netretry--;                        /* we actually try a coupla times. */
-			if (!netretry) {
-				if (o_verbose > 1)                /* normally we don't care */
-					fprintf(stderr, "net timeout\n");
-				close(netfd);
-				return 0;                        /* not an error! */
+				if (!netretry) {
+					if (o_verbose > 1)         /* normally we don't care */
+						fprintf(stderr, "net timeout\n");
+					/*close(netfd); - redundant, exit will do it */
+					return 0;                  /* not an error! */
+				}
 			}
-		} /* select timeout */
-	/* xxx: should we check the exception fds too?  The read fds seem to give
-	 us the right info, and none of the examples I found bothered. */
+		} /* timeout */
 
 	/* Ding!!  Something arrived, go check all the incoming hoppers, net first */
-		if (FD_ISSET(netfd, &ding2)) {                /* net: ding! */
+		if (pfds[1].revents) {                /* net: ding! */
 			rr = read(netfd, bigbuf_net, BIGSIZ);
 			if (rr <= 0) {
 				if (rr < 0 && o_verbose > 1) {
 					/* nc 1.10 doesn't do this */
 					bb_perror_msg("net read");
 				}
-				FD_CLR(netfd, &ding1);                /* net closed, we'll finish up... */
+				pfds[1].fd = -1;                   /* don't poll for netfd anymore */
+				fds_open--;
 				rzleft = 0;                        /* can't write anymore: broken pipe */
 			} else {
 				rnleft = rr;
@@ -647,16 +662,17 @@ Debug("got %d from the net, errno %d", rr, errno);
 			goto shovel;
 
 	/* okay, suck more stdin */
-		if (FD_ISSET(STDIN_FILENO, &ding2)) {                /* stdin: ding! */
+		if (pfds[0].revents) {                /* stdin: ding! */
 			rr = read(STDIN_FILENO, bigbuf_in, BIGSIZ);
 	/* Considered making reads here smaller for UDP mode, but 8192-byte
 	 mobygrams are kinda fun and exercise the reassembler. */
 			if (rr <= 0) {                        /* at end, or fukt, or ... */
-				FD_CLR(STDIN_FILENO, &ding1);                /* disable and close stdin */
-				close(STDIN_FILENO);
-// Does it make sense to shutdown(net_fd, SHUT_WR)
-// to let other side know that we won't write anything anymore?
-// (and what about keeping compat if we do that?)
+				pfds[0].fd = -1;              /* disable stdin */
+				/*close(STDIN_FILENO); - not really necessary */
+				/* Let peer know we have no more data */
+				/* nc 1.10 doesn't do this: */
+				shutdown(netfd, SHUT_WR);
+				fds_open--;
 			} else {
 				rzleft = rr;
 				zp = bigbuf_in;
@@ -667,24 +683,14 @@ Debug("got %d from the net, errno %d", rr, errno);
 	 Geez, why does this look an awful lot like the big loop in "rsh"? ...
 	 not sure if the order of this matters, but write net -> stdout first. */
 
-	/* sanity check.  Works because they're both unsigned... */
-		if ((rzleft > 8200) || (rnleft > 8200)) {
-			holler_error("bogus buffers: %u, %u", rzleft, rnleft);
-			rzleft = rnleft = 0;
-		}
-	/* net write retries sometimes happen on UDP connections */
-		if (!wretry) {                        /* is something hung? */
-			holler_error("too many output retries");
-			return 1;
-		}
 		if (rnleft) {
 			rr = write(STDOUT_FILENO, np, rnleft);
 			if (rr > 0) {
 				if (o_ofile) /* log the stdout */
 					oprint('<', (unsigned char *)np, rr);
-				np += rr;                        /* fix up ptrs and whatnot */
-				rnleft -= rr;                        /* will get sanity-checked above */
-				wrote_out += rr;                /* global count */
+				np += rr;
+				rnleft -= rr;
+				wrote_out += rr; /* global count */
 			}
 Debug("wrote %d to stdout, errno %d", rr, errno);
 		} /* rnleft */
@@ -699,20 +705,24 @@ Debug("wrote %d to stdout, errno %d", rr, errno);
 					oprint('>', (unsigned char *)zp, rr);
 				zp += rr;
 				rzleft -= rr;
-				wrote_net += rr;                /* global count */
+				wrote_net += rr; /* global count */
 			}
 Debug("wrote %d to net, errno %d", rr, errno);
 		} /* rzleft */
 		if (o_interval) {                        /* cycle between slow lines, or ... */
 			sleep(o_interval);
-			errno = 0;                        /* clear from sleep */
-			continue;                        /* ...with hairy select loop... */
+			continue;                        /* ...with hairy loop... */
 		}
-		if ((rzleft) || (rnleft)) {                /* shovel that shit till they ain't */
+		if (rzleft || rnleft) {                  /* shovel that shit till they ain't */
 			wretry--;                        /* none left, and get another load */
+	/* net write retries sometimes happen on UDP connections */
+			if (!wretry) {                   /* is something hung? */
+				holler_error("too many output retries");
+				return 1;
+			}
 			goto shovel;
 		}
-	} /* while ding1:netfd is open */
+	} /* while (fds_open) */
 
 	/* XXX: maybe want a more graceful shutdown() here, or screw around with
 	 linger times??  I suspect that I don't need to since I'm always doing
@@ -729,9 +739,10 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 {
 	char *str_p, *str_s;
 	IF_NC_EXTRA(char *str_i, *str_o;)
-	char *themdotted = themdotted; /* gcc */
+	char *themdotted = themdotted; /* for compiler */
 	char **proggie;
 	int x;
+	unsigned cnt_l = 0;
 	unsigned o_lport = 0;
 
 	INIT_G();
@@ -757,22 +768,44 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 			proggie++;
 			goto e_found;
 		}
+		/* -<other_opts>e PROG [ARGS] ? */
+		/* (aboriginal linux uses this form) */
+		if (proggie[0][0] == '-') {
+			char *optpos = *proggie + 1;
+			/* Skip all valid opts w/o params */
+			optpos = optpos + strspn(optpos, "nuv"IF_NC_SERVER("lk")IF_NC_EXTRA("z"));
+			if (*optpos == 'e' && !optpos[1]) {
+				*optpos = '\0';
+				proggie++;
+				G.proggie0saved = *proggie;
+				*proggie = NULL; /* terminate argv for getopt32 */
+				goto e_found;
+			}
+		}
 	}
 	proggie = NULL;
  e_found:
 
 	// -g -G -t -r deleted, unimplemented -a deleted too
-	opt_complementary = "?2:vv:w+"; /* max 2 params; -v is a counter; -w N */
-	getopt32(argv, "hnp:s:uvw:" IF_NC_SERVER("l")
-			IF_NC_EXTRA("i:o:z"),
-			&str_p, &str_s, &o_wait
-			IF_NC_EXTRA(, &str_i, &str_o), &o_verbose);
+	getopt32(argv, "^"
+		"np:s:uvw:+"/* -w N */ IF_NC_SERVER("lk")
+		IF_NC_EXTRA("i:o:z")
+			"\0"
+			"?2:vv"IF_NC_SERVER(":ll"), /* max 2 params; -v and -l are counters */
+		&str_p, &str_s, &o_wait
+		IF_NC_EXTRA(, &str_i, &str_o)
+			, &o_verbose IF_NC_SERVER(, &cnt_l)
+	);
 	argv += optind;
 #if ENABLE_NC_EXTRA
 	if (option_mask32 & OPT_i) /* line-interval time */
 		o_interval = xatou_range(str_i, 1, 0xffff);
 #endif
+#if ENABLE_NC_SERVER
 	//if (option_mask32 & OPT_l) /* listen mode */
+	if (option_mask32 & OPT_k) /* persistent server mode */
+		cnt_l = 2;
+#endif
 	//if (option_mask32 & OPT_n) /* numeric-only, no DNS lookups */
 	//if (option_mask32 & OPT_o) /* hexdump log */
 	if (option_mask32 & OPT_p) { /* local source port */
@@ -814,21 +847,21 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 				(themaddr ? themaddr->u.sa.sa_family : AF_UNSPEC),
 				x);
 		if (o_lport)
-			set_nport(ouraddr, htons(o_lport));
+			set_nport(&ouraddr->u.sa, htons(o_lport));
 	}
 	xmove_fd(x, netfd);
 	setsockopt_reuseaddr(netfd);
 	if (o_udpmode)
 		socket_want_pktinfo(netfd);
 	if (!ENABLE_FEATURE_UNIX_LOCAL
-	 || o_listen
+	 || cnt_l != 0 /* listen */
 	 || ouraddr->u.sa.sa_family != AF_UNIX
 	) {
 		xbind(netfd, &ouraddr->u.sa, ouraddr->len);
 	}
 #if 0
-	setsockopt(netfd, SOL_SOCKET, SO_RCVBUF, &o_rcvbuf, sizeof o_rcvbuf);
-	setsockopt(netfd, SOL_SOCKET, SO_SNDBUF, &o_sndbuf, sizeof o_sndbuf);
+	setsockopt_SOL_SOCKET_int(netfd, SO_RCVBUF, o_rcvbuf);
+	setsockopt_SOL_SOCKET_int(netfd, SO_SNDBUF, o_sndbuf);
 #endif
 
 #ifdef BLOAT
@@ -840,9 +873,8 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 	}
 #endif
 
-	FD_SET(STDIN_FILENO, &ding1);                        /* stdin *is* initially open */
 	if (proggie) {
-		close(0); /* won't need stdin */
+		close(STDIN_FILENO); /* won't need stdin */
 		option_mask32 &= ~OPT_o; /* -o with -e is meaningless! */
 	}
 #if ENABLE_NC_EXTRA
@@ -850,11 +882,9 @@ int nc_main(int argc UNUSED_PARAM, char **argv)
 		xmove_fd(xopen(str_o, O_WRONLY|O_CREAT|O_TRUNC), ofd);
 #endif
 
-	if (o_listen) {
-		dolisten();
+	if (cnt_l != 0) {
+		dolisten((cnt_l - 1), proggie);
 		/* dolisten does its own connect reporting */
-		if (proggie) /* -e given? */
-			doexec(proggie);
 		x = readwrite(); /* it even works with UDP! */
 	} else {
 		/* Outbound connects.  Now we're more picky about args... */

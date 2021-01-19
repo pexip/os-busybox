@@ -7,11 +7,36 @@
  *
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
+//config:config WATCH
+//config:	bool "watch (4.4 kb)"
+//config:	default y
+//config:	help
+//config:	watch is used to execute a program periodically, showing
+//config:	output to the screen.
+
+//applet:IF_WATCH(APPLET(watch, BB_DIR_BIN, BB_SUID_DROP))
+
+//kbuild:lib-$(CONFIG_WATCH) += watch.o
+
+//usage:#define watch_trivial_usage
+//usage:       "[-n SEC] [-t] PROG ARGS"
+//usage:#define watch_full_usage "\n\n"
+//usage:       "Run PROG periodically\n"
+//usage:     "\n	-n	Loop period in seconds (default 2)"
+//usage:     "\n	-t	Don't print header"
+//usage:
+//usage:#define watch_example_usage
+//usage:       "$ watch date\n"
+//usage:       "Mon Dec 17 10:31:40 GMT 2000\n"
+//usage:       "Mon Dec 17 10:31:42 GMT 2000\n"
+//usage:       "Mon Dec 17 10:31:44 GMT 2000"
 
 /* BB_AUDIT SUSv3 N/A */
 /* BB_AUDIT GNU defects -- only option -n is supported. */
 
 #include "libbb.h"
+
+#define ESC "\033"
 
 // procps 2.0.18:
 // watch [-d] [-n seconds]
@@ -38,9 +63,9 @@ int watch_main(int argc UNUSED_PARAM, char **argv)
 	xopen("/dev/null", O_RDONLY);
 #endif
 
-	opt_complementary = "-1:n+"; // at least one param; -n NUM
-	// "+": stop at first non-option (procps 3.x only)
-	opt = getopt32(argv, "+dtn:", &period);
+	// "+": stop at first non-option (procps 3.x only); -n NUM
+	// at least one param
+	opt = getopt32(argv, "^+" "dtn:+" "\0" "-1", &period);
 	argv += optind;
 
 	// watch from both procps 2.x and 3.x does concatenation. Example:
@@ -53,23 +78,25 @@ int watch_main(int argc UNUSED_PARAM, char **argv)
 	header = NULL;
 	while (1) {
 		/* home; clear to the end of screen */
-		printf("\033[H""\033[J");
+		printf(ESC"[H" ESC"[J");
 		if (!(opt & 0x2)) { // no -t
 			const unsigned time_len = sizeof("1234-67-90 23:56:89");
-			time_t t;
 
 			// STDERR_FILENO is procps3 compat:
 			// "watch ls 2>/dev/null" does not detect tty size
-			get_terminal_width_height(STDERR_FILENO, &new_width, NULL);
+			new_width = get_terminal_width(STDERR_FILENO);
 			if (new_width != width) {
 				width = new_width;
 				free(header);
 				header = xasprintf("Every %us: %-*s", period, (int)width, cmd);
 			}
-			time(&t);
-			if (time_len < width)
-				strftime(header + width - time_len, time_len,
-					"%Y-%m-%d %H:%M:%S", localtime(&t));
+			if (time_len < width) {
+				strftime_YYYYMMDDHHMMSS(
+					header + width - time_len,
+					time_len,
+					/*time_t*:*/ NULL
+				);
+			}
 
 			// compat: empty line between header and cmd output
 			printf("%s\n\n", header);

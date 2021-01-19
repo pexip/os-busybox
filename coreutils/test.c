@@ -19,33 +19,68 @@
  * Original copyright notice states:
  *     "This program is in the Public Domain."
  */
-
-//kbuild:lib-$(CONFIG_TEST)      += test.o test_ptr_hack.o
-//kbuild:lib-$(CONFIG_ASH)       += test.o test_ptr_hack.o
-//kbuild:lib-$(CONFIG_HUSH)      += test.o test_ptr_hack.o
-
 //config:config TEST
-//config:	bool "test"
+//config:	bool "test (4.1 kb)"
 //config:	default y
 //config:	help
-//config:	  test is used to check file types and compare values,
-//config:	  returning an appropriate exit code. The bash shell
-//config:	  has test built in, ash can build it in optionally.
+//config:	test is used to check file types and compare values,
+//config:	returning an appropriate exit code. The bash shell
+//config:	has test built in, ash can build it in optionally.
+//config:
+//config:config TEST1
+//config:	bool "test as ["
+//config:	default y
+//config:	help
+//config:	Provide test command in the "[ EXPR ]" form
+//config:
+//config:config TEST2
+//config:	bool "test as [["
+//config:	default y
+//config:	help
+//config:	Provide test command in the "[[ EXPR ]]" form
 //config:
 //config:config FEATURE_TEST_64
 //config:	bool "Extend test to 64 bit"
 //config:	default y
-//config:	depends on TEST || ASH_BUILTIN_TEST || HUSH
+//config:	depends on TEST || TEST1 || TEST2 || ASH_TEST || HUSH_TEST
 //config:	help
-//config:	  Enable 64-bit support in test.
+//config:	Enable 64-bit support in test.
+
+//applet:IF_TEST(APPLET_NOFORK(test, test, BB_DIR_USR_BIN, BB_SUID_DROP, test))
+//applet:IF_TEST1(APPLET_NOFORK([,   test, BB_DIR_USR_BIN, BB_SUID_DROP, test))
+//applet:IF_TEST2(APPLET_NOFORK([[,  test, BB_DIR_USR_BIN, BB_SUID_DROP, test))
+
+//kbuild:lib-$(CONFIG_TEST)  += test.o test_ptr_hack.o
+//kbuild:lib-$(CONFIG_TEST1) += test.o test_ptr_hack.o
+//kbuild:lib-$(CONFIG_TEST2) += test.o test_ptr_hack.o
+
+//kbuild:lib-$(CONFIG_ASH_TEST)  += test.o test_ptr_hack.o
+//kbuild:lib-$(CONFIG_HUSH_TEST) += test.o test_ptr_hack.o
+
+/* "test --help" is special-cased to ignore --help */
+//usage:#define test_trivial_usage NOUSAGE_STR
+//usage:#define test_full_usage ""
+//usage:
+//usage:#define test_example_usage
+//usage:       "$ test 1 -eq 2\n"
+//usage:       "$ echo $?\n"
+//usage:       "1\n"
+//usage:       "$ test 1 -eq 1\n"
+//usage:       "$ echo $?\n"
+//usage:       "0\n"
+//usage:       "$ [ -d /etc ]\n"
+//usage:       "$ echo $?\n"
+//usage:       "0\n"
+//usage:       "$ [ -d /junk ]\n"
+//usage:       "$ echo $?\n"
+//usage:       "1\n"
 
 #include "libbb.h"
-#include <setjmp.h>
 
 /* This is a NOFORK applet. Be very careful! */
 
 /* test_main() is called from shells, and we need to be extra careful here.
- * This is true regardless of PREFER_APPLETS and STANDALONE_SHELL
+ * This is true regardless of PREFER_APPLETS and SH_STANDALONE
  * state. */
 
 /* test(1) accepts the following grammar:
@@ -278,6 +313,9 @@ static const struct operator_t ops_table[] = {
 	{ /* "-L" */ FILSYM  , UNOP   },
 	{ /* "-S" */ FILSOCK , UNOP   },
 	{ /* "="  */ STREQ   , BINOP  },
+	/* "==" is bashism, http://pubs.opengroup.org/onlinepubs/9699919799/utilities/test.html
+	 * lists only "=" as comparison operator.
+	 */
 	{ /* "==" */ STREQ   , BINOP  },
 	{ /* "!=" */ STRNE   , BINOP  },
 	{ /* "<"  */ STRLT   , BINOP  },
@@ -322,6 +360,7 @@ static const char ops_texts[] ALIGN1 =
 	"-L"  "\0"
 	"-S"  "\0"
 	"="   "\0"
+	/* "==" is bashism */
 	"=="  "\0"
 	"!="  "\0"
 	"<"   "\0"
@@ -376,6 +415,7 @@ extern struct test_statics *const test_ptr_to_statics;
 	barrier(); \
 } while (0)
 #define DEINIT_S() do { \
+	free(group_array); \
 	free(test_ptr_to_statics); \
 } while (0)
 
@@ -526,25 +566,10 @@ static int binop(void)
 	/*return 1; - NOTREACHED */
 }
 
-
 static void initialize_group_array(void)
 {
-	int n;
-
-	/* getgroups may be expensive, try to use it only once */
-	ngroups = 32;
-	do {
-		/* FIXME: ash tries so hard to not die on OOM,
-		 * and we spoil it with just one xrealloc here */
-		/* We realloc, because test_main can be entered repeatedly by shell.
-		 * Testcase (ash): 'while true; do test -x some_file; done'
-		 * and watch top. (some_file must have owner != you) */
-		n = ngroups;
-		group_array = xrealloc(group_array, n * sizeof(gid_t));
-		ngroups = getgroups(n, group_array);
-	} while (ngroups > n);
+	group_array = bb_getgroups(&ngroups, NULL);
 }
-
 
 /* Return non-zero if GID is one that we have in our groups list. */
 //XXX: FIXME: duplicate of existing libbb function?
@@ -573,13 +598,9 @@ static int is_a_group_member(gid_t gid)
 /* Do the same thing access(2) does, but use the effective uid and gid,
    and don't make the mistake of telling root that any file is
    executable. */
-static int test_eaccess(char *path, int mode)
+static int test_eaccess(struct stat *st, int mode)
 {
-	struct stat st;
 	unsigned int euid = geteuid();
-
-	if (stat(path, &st) < 0)
-		return -1;
 
 	if (euid == 0) {
 		/* Root can read or write any file. */
@@ -587,17 +608,17 @@ static int test_eaccess(char *path, int mode)
 			return 0;
 
 		/* Root can execute any file that has any one of the execute
-		   bits set. */
-		if (st.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
+		 * bits set. */
+		if (st->st_mode & (S_IXUSR | S_IXGRP | S_IXOTH))
 			return 0;
 	}
 
-	if (st.st_uid == euid)  /* owner */
+	if (st->st_uid == euid)  /* owner */
 		mode <<= 6;
-	else if (is_a_group_member(st.st_gid))
+	else if (is_a_group_member(st->st_gid))
 		mode <<= 3;
 
-	if (st.st_mode & mode)
+	if (st->st_mode & mode)
 		return 0;
 
 	return -1;
@@ -630,7 +651,7 @@ static int filstat(char *nm, enum token mode)
 			i = W_OK;
 		if (mode == FILEX)
 			i = X_OK;
-		return test_eaccess(nm, i) == 0;
+		return test_eaccess(&s, i) == 0;
 	}
 	if (is_file_type(mode)) {
 		if (mode == FILREG)
@@ -687,7 +708,8 @@ static number_t nexpr(enum token n)
 		if (n == EOI) {
 			/* special case: [ ! ], [ a -a ! ] are valid */
 			/* IOW, "! ARG" may miss ARG */
-			unnest_msg("<nexpr:1 (!EOI)\n");
+			args--;
+			unnest_msg("<nexpr:1 (!EOI), args:%s(%p)\n", args[0], &args[0]);
 			return 1;
 		}
 		res = !nexpr(n);
@@ -706,15 +728,15 @@ static number_t aexpr(enum token n)
 
 	nest_msg(">aexpr(%s)\n", TOKSTR[n]);
 	res = nexpr(n);
-	dbg_msg("aexpr: nexpr:%lld, next args:%s\n", res, args[1]);
+	dbg_msg("aexpr: nexpr:%lld, next args:%s(%p)\n", res, args[1], &args[1]);
 	if (check_operator(*++args) == BAND) {
-		dbg_msg("aexpr: arg is AND, next args:%s\n", args[1]);
+		dbg_msg("aexpr: arg is AND, next args:%s(%p)\n", args[1], &args[1]);
 		res = aexpr(check_operator(*++args)) && res;
 		unnest_msg("<aexpr:%lld\n", res);
 		return res;
 	}
 	args--;
-	unnest_msg("<aexpr:%lld, args:%s\n", res, args[0]);
+	unnest_msg("<aexpr:%lld, args:%s(%p)\n", res, args[0], &args[0]);
 	return res;
 }
 
@@ -725,15 +747,15 @@ static number_t oexpr(enum token n)
 
 	nest_msg(">oexpr(%s)\n", TOKSTR[n]);
 	res = aexpr(n);
-	dbg_msg("oexpr: aexpr:%lld, next args:%s\n", res, args[1]);
+	dbg_msg("oexpr: aexpr:%lld, next args:%s(%p)\n", res, args[1], &args[1]);
 	if (check_operator(*++args) == BOR) {
-		dbg_msg("oexpr: next arg is OR, next args:%s\n", args[1]);
+		dbg_msg("oexpr: next arg is OR, next args:%s(%p)\n", args[1], &args[1]);
 		res = oexpr(check_operator(*++args)) || res;
 		unnest_msg("<oexpr:%lld\n", res);
 		return res;
 	}
 	args--;
-	unnest_msg("<oexpr:%lld, args:%s\n", res, args[0]);
+	unnest_msg("<oexpr:%lld, args:%s(%p)\n", res, args[0], &args[0]);
 	return res;
 }
 
@@ -802,10 +824,11 @@ int test_main(int argc, char **argv)
 {
 	int res;
 	const char *arg0;
-//	bool negate = 0;
 
 	arg0 = bb_basename(argv[0]);
-	if (arg0[0] == '[') {
+	if ((ENABLE_TEST1 || ENABLE_TEST2 || ENABLE_ASH_TEST || ENABLE_HUSH_TEST)
+	 && (arg0[0] == '[')
+	) {
 		--argc;
 		if (!arg0[1]) { /* "[" ? */
 			if (NOT_LONE_CHAR(argv[argc], ']')) {
@@ -820,6 +843,7 @@ int test_main(int argc, char **argv)
 		}
 		argv[argc] = NULL;
 	}
+	/* argc is unused after this point */
 
 	/* We must do DEINIT_S() prior to returning */
 	INIT_S();
@@ -838,52 +862,86 @@ int test_main(int argc, char **argv)
 	 */
 	/*ngroups = 0; - done by INIT_S() */
 
-	//argc--;
 	argv++;
+	args = argv;
 
-	/* Implement special cases from POSIX.2, section 4.62.4 */
-	if (!argv[0]) { /* "test" */
-		res = 1;
-		goto ret;
-	}
-#if 0
-// Now it's fixed in the parser and should not be needed
-	if (LONE_CHAR(argv[0], '!') && argv[1]) {
-		negate = 1;
-		//argc--;
-		argv++;
-	}
-	if (!argv[1]) { /* "test [!] arg" */
-		res = (*argv[0] == '\0');
-		goto ret;
-	}
-	if (argv[2] && !argv[3]) {
-		check_operator(argv[1]);
-		if (last_operator->op_type == BINOP) {
-			/* "test [!] arg1 <binary_op> arg2" */
-			args = argv;
-			res = (binop() == 0);
-			goto ret;
+	/* Implement special cases from POSIX.2, section 4.62.4.
+	 * Testcase: "test '(' = '('"
+	 * The general parser would misinterpret '(' as group start.
+	 */
+	if (1) {
+		int negate = 0;
+ again:
+		if (!argv[0]) {
+			/* "test" */
+			res = 1;
+			goto ret_special;
+		}
+		if (!argv[1]) {
+			/* "test [!] arg" */
+			res = (argv[0][0] == '\0');
+			goto ret_special;
+		}
+		if (argv[2]) {
+			if (!argv[3]) {
+				/*
+				 * http://pubs.opengroup.org/onlinepubs/009695399/utilities/test.html
+				 * """ 3 arguments:
+				 * If $2 is a binary primary, perform the binary test of $1 and $3.
+				 * """
+				 */
+				check_operator(argv[1]);
+				if (last_operator->op_type == BINOP) {
+					/* "test [!] arg1 <binary_op> arg2" */
+					args = argv;
+					res = (binop() == 0);
+ ret_special:
+					/* If there was leading "!" op... */
+					res ^= negate;
+					goto ret;
+				}
+				/* """If $1 is '(' and $3 is ')', perform the unary test of $2."""
+				 * Looks like this works without additional coding.
+				 */
+				goto check_negate;
+			}
+			/* argv[3] exists (at least 4 args), is it exactly 4 args? */
+			if (!argv[4]) {
+				/*
+				 * """ 4 arguments:
+				 * If $1 is '!', negate the three-argument test of $2, $3, and $4.
+				 * If $1 is '(' and $4 is ')', perform the two-argument test of $2 and $3.
+				 * """
+				 * Example why code below is necessary: test '(' ! -e ')'
+				 */
+				if (LONE_CHAR(argv[0], '(')
+				 && LONE_CHAR(argv[3], ')')
+				) {
+					/* "test [!] ( x y )" */
+					argv[3] = NULL;
+					argv++;
+				}
+			}
+		}
+ check_negate:
+		if (LONE_CHAR(argv[0], '!')) {
+			argv++;
+			negate ^= 1;
+			goto again;
 		}
 	}
 
-	/* Some complex expression. Undo '!' removal */
-	if (negate) {
-		negate = 0;
-		//argc++;
-		argv--;
-	}
-#endif
-	args = argv;
 	res = !oexpr(check_operator(*args));
 
 	if (*args != NULL && *++args != NULL) {
-		/* TODO: example when this happens? */
+		/* Examples:
+		 * test 3 -lt 5 6
+		 * test -t 1 2
+		 */
 		bb_error_msg("%s: unknown operand", *args);
 		res = 2;
 	}
  ret:
 	DEINIT_S();
-//	return negate ? !res : res;
 	return res;
 }

@@ -2,9 +2,8 @@
 /*
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
-
 #include "libbb.h"
-#include "archive.h"
+#include "bb_archive.h"
 
 /*  If we are reading through a pipe, or from stdin then we can't lseek,
  *  we must read and discard the data to skip over it.

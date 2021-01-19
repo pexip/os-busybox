@@ -58,9 +58,10 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+//kbuild:lib-$(CONFIG_FEATURE_2_4_MODULES) += modutils-24.o
+
 #include "libbb.h"
 #include "modutils.h"
-#include <libgen.h>
 #include <sys/utsname.h>
 
 #if ENABLE_FEATURE_INSMOD_LOADINKMEM
@@ -2256,7 +2257,7 @@ static int add_symbols_from(struct obj_file *f,
 		 * symbols so they cannot fudge it by adding the prefix on
 		 * their references.
 		 */
-		if (strncmp((char *)s->name, "GPLONLY_", 8) == 0) {
+		if (is_prefixed_with((char *)s->name, "GPLONLY_")) {
 #if ENABLE_FEATURE_CHECK_TAINTED_MODULE
 			if (gpl)
 				s->name += 8;
@@ -2268,8 +2269,8 @@ static int add_symbols_from(struct obj_file *f,
 
 #ifdef SYMBOL_PREFIX
 		/* Prepend SYMBOL_PREFIX to the symbol's name (the
-		   kernel exports `C names', but module object files
-		   reference `linker names').  */
+		   kernel exports 'C names', but module object files
+		   reference 'linker names').  */
 		size_t extra = sizeof SYMBOL_PREFIX;
 		size_t name_size = strlen(name) + extra;
 		if (name_size > name_alloced_size) {
@@ -2444,14 +2445,12 @@ new_process_module_arguments(struct obj_file *f, const char *options)
 			bb_error_msg_and_die("symbol for parameter %s not found", param);
 
 		/* Number of parameters */
+		min = max = 1;
 		if (isdigit(*pinfo)) {
-			min = strtoul(pinfo, &pinfo, 10);
+			min = max = strtoul(pinfo, &pinfo, 10);
 			if (*pinfo == '-')
 				max = strtoul(pinfo + 1, &pinfo, 10);
-			else
-				max = min;
-		} else
-			min = max = 1;
+		}
 
 		contents = f->sections[sym->secidx]->contents;
 		loc = contents + sym->value;
@@ -2473,7 +2472,7 @@ new_process_module_arguments(struct obj_file *f, const char *options)
 		/* Parse parameter values */
 		n = 0;
 		p = val;
-		while (*p != 0) {
+		while (*p) {
 			char sv_ch;
 			char *endp;
 
@@ -2484,7 +2483,7 @@ new_process_module_arguments(struct obj_file *f, const char *options)
 			case 's':
 				len = strcspn(p, ",");
 				sv_ch = p[len];
-				p[len] = 0;
+				p[len] = '\0';
 				obj_string_patch(f, sym->secidx,
 						 loc - contents, p);
 				loc += tgt_sizeof_char_p;
@@ -2494,7 +2493,7 @@ new_process_module_arguments(struct obj_file *f, const char *options)
 			case 'c':
 				len = strcspn(p, ",");
 				sv_ch = p[len];
-				p[len] = 0;
+				p[len] = '\0';
 				if (len >= charssize)
 					bb_error_msg_and_die("string too long for %s (max %ld)", param,
 							     charssize - 1);

@@ -6,23 +6,15 @@
  *
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
+#include <sys/prctl.h>
 #include "libbb.h"
 #include "mail.h"
-
-static void kill_helper(void)
-{
-	if (G.helper_pid > 0) {
-		kill(G.helper_pid, SIGTERM);
-		G.helper_pid = 0;
-	}
-}
 
 // generic signal handler
 static void signal_handler(int signo)
 {
 #define err signo
 	if (SIGALRM == signo) {
-		kill_helper();
 		bb_error_msg_and_die("timed out");
 	}
 
@@ -57,31 +49,36 @@ void FAST_FUNC launch_helper(const char **argv)
 	G.helper_pid = xvfork();
 
 	i = (!G.helper_pid) * 2; // for parent:0, for child:2
-	close(pipes[i + 1]); // 1 or 3 - closing one write end
-	close(pipes[2 - i]); // 2 or 0 - closing one read end
-	xmove_fd(pipes[i], STDIN_FILENO); // 0 or 2 - using other read end
-	xmove_fd(pipes[3 - i], STDOUT_FILENO); // 3 or 1 - other write end
+	close(pipes[i + 1]);     // 1 or 3 - closing one write end
+	close(pipes[2 - i]);     // 2 or 0 - closing one read end
+	xmove_fd(pipes[i], STDIN_FILENO);      // 0 or 2 - using other read end
+	xmove_fd(pipes[3 - i], STDOUT_FILENO); // 3 or 1 - using other write end
+	// End result:
+	// parent stdout [3] -> child stdin [2]
+	// child stdout [1] -> parent stdin [0]
 
 	if (!G.helper_pid) {
-		// child: try to execute connection helper
+		// child
+		// if parent dies, get SIGTERM
+		prctl(PR_SET_PDEATHSIG, SIGTERM, 0, 0, 0);
+		// try to execute connection helper
 		// NB: SIGCHLD & SIGALRM revert to SIG_DFL on exec
 		BB_EXECVP_or_die((char**)argv);
 	}
 
-	// parent
-	// check whether child is alive
-	//redundant:signal_handler(SIGCHLD);
-	// child seems OK -> parent goes on
-	atexit(kill_helper);
+	// parent goes on
 }
 
-const FAST_FUNC char *command(const char *fmt, const char *param)
+char* FAST_FUNC send_mail_command(const char *fmt, const char *param)
 {
-	const char *msg = fmt;
+	char *msg;
 	if (timeout)
 		alarm(timeout);
-	if (msg) {
+	msg = (char*)fmt;
+	if (fmt) {
 		msg = xasprintf(fmt, param);
+		if (verbose)
+			bb_error_msg("send:'%s'", msg);
 		printf("%s\r\n", msg);
 	}
 	fflush_all();
@@ -90,7 +87,7 @@ const FAST_FUNC char *command(const char *fmt, const char *param)
 
 // NB: parse_url can modify url[] (despite const), but only if '@' is there
 /*
-static char FAST_FUNC *parse_url(char *url, char **user, char **pass)
+static char* FAST_FUNC parse_url(char *url, char **user, char **pass)
 {
 	// parse [user[:pass]@]host
 	// return host
@@ -110,27 +107,21 @@ static char FAST_FUNC *parse_url(char *url, char **user, char **pass)
 }
 */
 
-void FAST_FUNC encode_base64(char *fname, const char *text, const char *eol)
+static void encode_n_base64(const char *fname, const char *text, size_t len)
 {
 	enum {
-		SRC_BUF_SIZE = 45,  /* This *MUST* be a multiple of 3 */
+		SRC_BUF_SIZE = 57,  /* This *MUST* be a multiple of 3 */
 		DST_BUF_SIZE = 4 * ((SRC_BUF_SIZE + 2) / 3),
 	};
 #define src_buf text
 	char src[SRC_BUF_SIZE];
 	FILE *fp = fp;
-	ssize_t len = len;
 	char dst_buf[DST_BUF_SIZE + 1];
 
 	if (fname) {
-		fp = (NOT_LONE_DASH(fname)) ? xfopen_for_read(fname) : (FILE *)text;
+		fp = (NOT_LONE_DASH(fname)) ? xfopen_for_read(fname) : stdin;
 		src_buf = src;
-	} else if (text) {
-		// though we do not call uuencode(NULL, NULL) explicitly
-		// still we do not want to break things suddenly
-		len = strlen(text);
-	} else
-		return;
+	}
 
 	while (1) {
 		size_t size;
@@ -148,7 +139,7 @@ void FAST_FUNC encode_base64(char *fname, const char *text, const char *eol)
 		// encode the buffer we just read in
 		bb_uuencode(dst_buf, src_buf, size, bb_uuenc_tbl_base64);
 		if (fname) {
-			printf("%s\n", eol);
+			puts("");
 		} else {
 			src_buf += size;
 			len -= size;
@@ -160,17 +151,32 @@ void FAST_FUNC encode_base64(char *fname, const char *text, const char *eol)
 #undef src_buf
 }
 
+void FAST_FUNC printstr_base64(const char *text)
+{
+	encode_n_base64(NULL, text, strlen(text));
+}
+
+void FAST_FUNC printbuf_base64(const char *text, unsigned len)
+{
+	encode_n_base64(NULL, text, len);
+}
+
+void FAST_FUNC printfile_base64(const char *fname)
+{
+	encode_n_base64(fname, NULL, 0);
+}
+
 /*
  * get username and password from a file descriptor
  */
 void FAST_FUNC get_cred_or_die(int fd)
 {
 	if (isatty(fd)) {
-		G.user = xstrdup(bb_ask(fd, /* timeout: */ 0, "User: "));
-		G.pass = xstrdup(bb_ask(fd, /* timeout: */ 0, "Password: "));
+		G.user = bb_ask_noecho(fd, /* timeout: */ 0, "User: ");
+		G.pass = bb_ask_noecho(fd, /* timeout: */ 0, "Password: ");
 	} else {
-		G.user = xmalloc_reads(fd, /* pfx: */ NULL, /* maxsize: */ NULL);
-		G.pass = xmalloc_reads(fd, /* pfx: */ NULL, /* maxsize: */ NULL);
+		G.user = xmalloc_reads(fd, /* maxsize: */ NULL);
+		G.pass = xmalloc_reads(fd, /* maxsize: */ NULL);
 	}
 	if (!G.user || !*G.user || !G.pass)
 		bb_error_msg_and_die("no username or password");

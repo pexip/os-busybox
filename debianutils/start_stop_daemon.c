@@ -31,7 +31,8 @@ Options controlling process matching
 [TODO: can PROCESS_NAME be a full pathname? Should we require full match then
 with /proc/$PID/exe or argv[0] (comm can't be matched, it never contains path)]
         -x,--exec EXECUTABLE    Look for processes that were started with this
-                                command in /proc/$PID/cmdline.
+                                command in /proc/$PID/exe and /proc/$PID/cmdline
+                                (/proc/$PID/cmdline is a bbox extension)
                                 Unlike -n, we match against the full path:
                                 "ntpd" != "./ntpd" != "/path/to/ntpd"
         -p,--pidfile PID_FILE   Look for processes with PID from this file
@@ -55,12 +56,70 @@ Misc options:
         -q,--quiet              Quiet
         -v,--verbose            Verbose
 */
+//config:config START_STOP_DAEMON
+//config:	bool "start-stop-daemon (12 kb)"
+//config:	default y
+//config:	help
+//config:	start-stop-daemon is used to control the creation and
+//config:	termination of system-level processes, usually the ones
+//config:	started during the startup of the system.
+//config:
+//config:config FEATURE_START_STOP_DAEMON_LONG_OPTIONS
+//config:	bool "Enable long options"
+//config:	default y
+//config:	depends on START_STOP_DAEMON && LONG_OPTS
+//config:
+//config:config FEATURE_START_STOP_DAEMON_FANCY
+//config:	bool "Support additional arguments"
+//config:	default y
+//config:	depends on START_STOP_DAEMON
+//config:	help
+//config:	-o|--oknodo ignored since we exit with 0 anyway
+//config:	-v|--verbose
+//config:	-N|--nicelevel N
 
-#include <sys/resource.h>
+//applet:IF_START_STOP_DAEMON(APPLET_ODDNAME(start-stop-daemon, start_stop_daemon, BB_DIR_SBIN, BB_SUID_DROP, start_stop_daemon))
+/* not NOEXEC: uses bb_common_bufsiz1 */
+
+//kbuild:lib-$(CONFIG_START_STOP_DAEMON) += start_stop_daemon.o
+
+//usage:#define start_stop_daemon_trivial_usage
+//usage:       "[OPTIONS] [-S|-K] ... [-- ARGS...]"
+//usage:#define start_stop_daemon_full_usage "\n\n"
+//usage:       "Search for matching processes, and then\n"
+//usage:       "-K: stop all matching processes\n"
+//usage:       "-S: start a process unless a matching process is found\n"
+//usage:     "\nProcess matching:"
+//usage:     "\n	-u USERNAME|UID	Match only this user's processes"
+//usage:     "\n	-n NAME		Match processes with NAME"
+//usage:     "\n			in comm field in /proc/PID/stat"
+//usage:     "\n	-x EXECUTABLE	Match processes with this command"
+//usage:     "\n			command in /proc/PID/cmdline"
+//usage:     "\n	-p FILE		Match a process with PID from FILE"
+//usage:     "\n	All specified conditions must match"
+//usage:     "\n-S only:"
+//usage:     "\n	-x EXECUTABLE	Program to run"
+//usage:     "\n	-a NAME		Zeroth argument"
+//usage:     "\n	-b		Background"
+//usage:	IF_FEATURE_START_STOP_DAEMON_FANCY(
+//usage:     "\n	-N N		Change nice level"
+//usage:	)
+//usage:     "\n	-c USER[:[GRP]]	Change user/group"
+//usage:     "\n	-m		Write PID to pidfile specified by -p"
+//usage:     "\n-K only:"
+//usage:     "\n	-s SIG		Signal to send"
+//usage:     "\n	-t		Match only, exit with 0 if found"
+//usage:     "\nOther:"
+//usage:	IF_FEATURE_START_STOP_DAEMON_FANCY(
+//usage:     "\n	-o		Exit with status 0 if nothing is done"
+//usage:     "\n	-v		Verbose"
+//usage:	)
+//usage:     "\n	-q		Quiet"
 
 /* Override ENABLE_FEATURE_PIDFILE */
 #define WANT_PIDFILE 1
 #include "libbb.h"
+#include "common_bufsiz.h"
 
 struct pid_list {
 	struct pid_list *next;
@@ -98,8 +157,11 @@ struct globals {
 	unsigned execname_sizeof;
 	int user_id;
 	smallint signal_nr;
+#ifdef OLDER_VERSION_OF_X
+	struct stat execstat;
+#endif
 } FIX_ALIASING;
-#define G (*(struct globals*)&bb_common_bufsiz1)
+#define G (*(struct globals*)bb_common_bufsiz1)
 #define userspec          (G.userspec            )
 #define cmdname           (G.cmdname             )
 #define execname          (G.execname            )
@@ -107,6 +169,7 @@ struct globals {
 #define user_id           (G.user_id             )
 #define signal_nr         (G.signal_nr           )
 #define INIT_G() do { \
+	setup_common_bufsiz(); \
 	user_id = -1; \
 	signal_nr = 15; \
 } while (0)
@@ -124,19 +187,28 @@ static int pid_is_exec(pid_t pid)
 	sprintf(buf, "/proc/%u/exe", (unsigned)pid);
 	if (stat(buf, &st) < 0)
 		return 0;
-	if (st.st_dev == execstat.st_dev
-	 && st.st_ino == execstat.st_ino)
+	if (st.st_dev == G.execstat.st_dev
+	 && st.st_ino == G.execstat.st_ino)
 		return 1;
 	return 0;
 }
-#endif
-
+#else
 static int pid_is_exec(pid_t pid)
 {
 	ssize_t bytes;
 	char buf[sizeof("/proc/%u/cmdline") + sizeof(int)*3];
+	char *procname, *exelink;
+	int match;
 
-	sprintf(buf, "/proc/%u/cmdline", (unsigned)pid);
+	procname = buf + sprintf(buf, "/proc/%u/exe", (unsigned)pid) - 3;
+
+	exelink = xmalloc_readlink(buf);
+	match = (exelink && strcmp(execname, exelink) == 0);
+	free(exelink);
+	if (match)
+		return match;
+
+	strcpy(procname, "cmdline");
 	bytes = open_read_close(buf, G.execname_cmpbuf, G.execname_sizeof);
 	if (bytes > 0) {
 		G.execname_cmpbuf[bytes] = '\0';
@@ -144,6 +216,7 @@ static int pid_is_exec(pid_t pid)
 	}
 	return 0;
 }
+#endif
 
 static int pid_is_name(pid_t pid)
 {
@@ -274,11 +347,17 @@ static int do_stop(void)
 		goto ret;
 	}
 	for (p = G.found_procs; p; p = p->next) {
-		if (TEST || kill(p->pid, signal_nr) == 0) {
+		if (kill(p->pid, TEST ? 0 : signal_nr) == 0) {
 			killed++;
 		} else {
-			p->pid = 0;
 			bb_perror_msg("warning: killing process %u", (unsigned)p->pid);
+			p->pid = 0;
+			if (TEST) {
+				/* Example: -K --test --pidfile PIDFILE detected
+				 * that PIDFILE's pid doesn't exist */
+				killed = -1;
+				goto ret;
+			}
 		}
 	}
 	if (!QUIET && killed) {
@@ -302,11 +381,11 @@ static const char start_stop_daemon_longopts[] ALIGN1 =
 	"quiet\0"        No_argument       "q"
 	"test\0"         No_argument       "t"
 	"make-pidfile\0" No_argument       "m"
-#if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
+# if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
 	"oknodo\0"       No_argument       "o"
 	"verbose\0"      No_argument       "v"
 	"nicelevel\0"    Required_argument "N"
-#endif
+# endif
 	"startas\0"      Required_argument "a"
 	"name\0"         Required_argument "n"
 	"signal\0"       Required_argument "s"
@@ -314,10 +393,15 @@ static const char start_stop_daemon_longopts[] ALIGN1 =
 	"chuid\0"        Required_argument "c"
 	"exec\0"         Required_argument "x"
 	"pidfile\0"      Required_argument "p"
-#if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
+# if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
 	"retry\0"        Required_argument "R"
-#endif
+# endif
 	;
+# define GETOPT32 getopt32long
+# define LONGOPTS start_stop_daemon_longopts,
+#else
+# define GETOPT32 getopt32
+# define LONGOPTS
 #endif
 
 int start_stop_daemon_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -327,9 +411,6 @@ int start_stop_daemon_main(int argc UNUSED_PARAM, char **argv)
 	char *signame;
 	char *startas;
 	char *chuid;
-#ifdef OLDER_VERSION_OF_X
-	struct stat execstat;
-#endif
 #if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
 //	char *retry_arg = NULL;
 //	int retries = -1;
@@ -338,19 +419,18 @@ int start_stop_daemon_main(int argc UNUSED_PARAM, char **argv)
 
 	INIT_G();
 
-#if ENABLE_FEATURE_START_STOP_DAEMON_LONG_OPTIONS
-	applet_long_options = start_stop_daemon_longopts;
-#endif
-
-	/* -K or -S is required; they are mutually exclusive */
-	/* -p is required if -m is given */
-	/* -xpun (at least one) is required if -K is given */
-	/* -xa (at least one) is required if -S is given */
-	/* -q turns off -v */
-	opt_complementary = "K:S:K--S:S--K:m?p:K?xpun:S?xa"
-		IF_FEATURE_START_STOP_DAEMON_FANCY("q-v");
-	opt = getopt32(argv, "KSbqtma:n:s:u:c:x:p:"
-		IF_FEATURE_START_STOP_DAEMON_FANCY("ovN:R:"),
+	opt = GETOPT32(argv, "^"
+		"KSbqtma:n:s:u:c:x:p:"
+		IF_FEATURE_START_STOP_DAEMON_FANCY("ovN:R:")
+			/* -K or -S is required; they are mutually exclusive */
+			/* -p is required if -m is given */
+			/* -xpun (at least one) is required if -K is given */
+			/* -xa (at least one) is required if -S is given */
+			/* -q turns off -v */
+			"\0"
+			"K:S:K--S:S--K:m?p:K?xpun:S?xa"
+			IF_FEATURE_START_STOP_DAEMON_FANCY("q-v"),
+		LONGOPTS
 		&startas, &cmdname, &signame, &userspec, &chuid, &execname, &pidfile
 		IF_FEATURE_START_STOP_DAEMON_FANCY(,&opt_N)
 		/* We accept and ignore -R <param> / --retry <param> */
@@ -399,16 +479,21 @@ int start_stop_daemon_main(int argc UNUSED_PARAM, char **argv)
 
 #ifdef OLDER_VERSION_OF_X
 	if (execname)
-		xstat(execname, &execstat);
+		xstat(execname, &G.execstat);
 #endif
 
 	*--argv = startas;
 	if (opt & OPT_BACKGROUND) {
 #if BB_MMU
-		bb_daemonize(DAEMON_DEVNULL_STDIO + DAEMON_CLOSE_EXTRA_FDS);
+		bb_daemonize(DAEMON_DEVNULL_STDIO + DAEMON_CLOSE_EXTRA_FDS + DAEMON_DOUBLE_FORK);
 		/* DAEMON_DEVNULL_STDIO is superfluous -
 		 * it's always done by bb_daemonize() */
 #else
+		/* Daemons usually call bb_daemonize_or_rexec(), but SSD can do
+		 * without: SSD is not itself a daemon, it _execs_ a daemon.
+		 * The usual NOMMU problem of "child can't run indefinitely,
+		 * it must exec" does not bite us: we exec anyway.
+		 */
 		pid_t pid = xvfork();
 		if (pid != 0) {
 			/* parent */
@@ -418,12 +503,8 @@ int start_stop_daemon_main(int argc UNUSED_PARAM, char **argv)
 		}
 		/* Child */
 		setsid(); /* detach from controlling tty */
-		/* Redirect stdio to /dev/null, close extra FDs.
-		 * We do not actually daemonize because of DAEMON_ONLY_SANITIZE */
-		bb_daemonize_or_rexec(DAEMON_DEVNULL_STDIO
-			+ DAEMON_CLOSE_EXTRA_FDS
-			+ DAEMON_ONLY_SANITIZE,
-			NULL /* argv, unused */ );
+		/* Redirect stdio to /dev/null, close extra FDs */
+		bb_daemon_helper(DAEMON_DEVNULL_STDIO + DAEMON_CLOSE_EXTRA_FDS);
 #endif
 	}
 	if (opt & OPT_MAKEPID) {
@@ -431,10 +512,18 @@ int start_stop_daemon_main(int argc UNUSED_PARAM, char **argv)
 		write_pidfile(pidfile);
 	}
 	if (opt & OPT_c) {
-		struct bb_uidgid_t ugid = { -1, -1 };
+		struct bb_uidgid_t ugid;
 		parse_chown_usergroup_or_die(&ugid, chuid);
-		if (ugid.gid != (gid_t) -1) xsetgid(ugid.gid);
-		if (ugid.uid != (uid_t) -1) xsetuid(ugid.uid);
+		if (ugid.uid != (uid_t) -1L) {
+			struct passwd *pw = xgetpwuid(ugid.uid);
+			if (ugid.gid != (gid_t) -1L)
+				pw->pw_gid = ugid.gid;
+			/* initgroups, setgid, setuid: */
+			change_identity(pw);
+		} else if (ugid.gid != (gid_t) -1L) {
+			xsetgid(ugid.gid);
+			setgroups(1, &ugid.gid);
+		}
 	}
 #if ENABLE_FEATURE_START_STOP_DAEMON_FANCY
 	if (opt & OPT_NICELEVEL) {

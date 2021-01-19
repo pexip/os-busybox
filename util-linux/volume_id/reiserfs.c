@@ -18,6 +18,12 @@
  *	License along with this library; if not, write to the Free Software
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+//config:config FEATURE_VOLUMEID_REISERFS
+//config:	bool "Reiser filesystem"
+//config:	default y
+//config:	depends on VOLUMEID
+
+//kbuild:lib-$(CONFIG_FEATURE_VOLUMEID_REISERFS) += reiserfs.o
 
 #include "volume_id_internal.h"
 
@@ -107,7 +113,7 @@ int FAST_FUNC volume_id_probe_reiserfs(struct volume_id *id /*,uint64_t off*/)
 
  found:
 //	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-//	id->type = "reiserfs";
+	IF_FEATURE_BLKID_TYPE(id->type = "reiserfs";)
 
 	return 0;
 }

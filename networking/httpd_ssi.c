@@ -52,9 +52,9 @@ httpd_ssi.c -o httpd_ssi
 
 static char* skip_whitespace(char *s)
 {
-        while (*s == ' ' || *s == '\t') ++s;
+	while (*s == ' ' || *s == '\t') ++s;
 
-        return s;
+	return s;
 }
 
 static char line[64 * 1024];
@@ -133,7 +133,7 @@ static void process_includes(const char *filename)
 		process_includes(include_directive);
 
 		/* Print everything after directive */
-	        if (end) {
+		if (end) {
 			fputs(end, stdout);
 			free(end);
 		}
