@@ -1,0 +1,56 @@
+diff --git a/editors/cmp.c b/editors/cmp.c
+index 6e27a84..3bb0cc9 100644
+--- a/editors/cmp.c
++++ b/editors/cmp.c
+@@ -12,6 +12,11 @@
+ //config:	help
+ //config:	cmp is used to compare two files and returns the result
+ //config:	to standard output.
++//config:
++//config:config FEATURE_CMP_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on CMP && LONG_OPTS
+ 
+ //applet:IF_CMP(APPLET(cmp, BB_DIR_USR_BIN, BB_SUID_DROP))
+ 
+@@ -35,6 +40,14 @@ static const char fmt_differ[] ALIGN1 = "%s %s differ: char %"OFF_FMT"u, line %u
+ #define OPT_STR "sl"
+ #define CMP_OPT_s (1<<0)
+ #define CMP_OPT_l (1<<1)
++
++#if ENABLE_FEATURE_CMP_LONG_OPTIONS
++static const char *cmp_long_opts =
++	"quiet\0"   No_argument       "s"
++	"silent\0"  No_argument       "s"
++	"verbose\0" No_argument       "l"
++	;
++#endif
+ 
+ int cmp_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+ int cmp_main(int argc UNUSED_PARAM, char **argv)
+@@ -47,13 +60,24 @@ int cmp_main(int argc UNUSED_PARAM, char **argv)
+ 	unsigned opt;
+ 	int retval = 0;
+ 
++#if ENABLE_FEATURE_CMP_LONG_OPTIONS
++	opt = getopt32long(argv, "^"
++			OPT_STR
++			"\0" "-1"
++			IF_DESKTOP(":?4")
++			IF_NOT_DESKTOP(":?2")
++			":l--s:s--l",
++			cmp_long_opts
++	);
++#else
+ 	opt = getopt32(argv, "^"
+ 			OPT_STR
+ 			"\0" "-1"
+ 			IF_DESKTOP(":?4")
+ 			IF_NOT_DESKTOP(":?2")
+ 			":l--s:s--l"
+ 	);
++#endif
+ 	argv += optind;
+ 
+ 	filename1 = *argv;
