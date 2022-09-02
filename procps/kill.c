@@ -59,7 +59,7 @@
 //usage:       "$ kill 252\n"
 //usage:
 //usage:#define killall_trivial_usage
-//usage:       "[-l] [-q] [-SIG] PROCESS_NAME..."
+//usage:       "[-lq] [-SIG] PROCESS_NAME..."
 //usage:#define killall_full_usage "\n\n"
 //usage:       "Send a signal (default: TERM) to given processes\n"
 //usage:     "\n	-l	List all signal names and numbers"
@@ -268,7 +268,7 @@ int kill_main(int argc UNUSED_PARAM, char **argv)
 #if ENABLE_KILL || ENABLE_KILLALL
 	/* Pid or name is required for kill/killall */
 	if (!arg) {
-		bb_error_msg("you need to specify whom to kill");
+		bb_simple_error_msg("you need to specify whom to kill");
 		return EXIT_FAILURE;
 	}
 

@@ -54,7 +54,7 @@ now, we will live with this simple and ugly forkaround.
 
 --- a/shell/ash.c
 +++ b/shell/ash.c
-@@ -2067,7 +2067,7 @@
+@@ -2134,7 +2134,7 @@
  	{ VSTRFIXED|VTEXTFIXED|VUNSET, "MAIL"      , changemail      },
  	{ VSTRFIXED|VTEXTFIXED|VUNSET, "MAILPATH"  , changemail      },
  #endif
@@ -65,7 +65,7 @@ now, we will live with this simple and ugly forkaround.
  	{ VSTRFIXED|VTEXTFIXED       , "PS4=+ "    , NULL            },
 --- a/include/libbb.h
 +++ b/include/libbb.h
-@@ -2071,7 +2071,7 @@
+@@ -2264,7 +2264,7 @@
  #define BB_ADDITIONAL_PATH ""
  #endif
  #define BB_PATH_ROOT_PATH "PATH=/sbin:/usr/sbin:/bin:/usr/bin" BB_ADDITIONAL_PATH

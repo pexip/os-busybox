@@ -75,7 +75,7 @@ static void mkswap_selinux_setcontext(int fd, const char *path)
 	}
 	return;
  error:
-	bb_perror_msg_and_die("SELinux relabeling failed");
+	bb_simple_perror_msg_and_die("SELinux relabeling failed");
 }
 #else
 # define mkswap_selinux_setcontext(fd, path) ((void)0)
@@ -128,7 +128,7 @@ int mkswap_main(int argc UNUSED_PARAM, char **argv)
 
 	/* Figure out how big the device is */
 	len = get_volume_size_in_bytes(fd, argv[1], 1024, /*extend:*/ 1);
-	pagesize = getpagesize();
+	pagesize = bb_getpagesize();
 	len -= pagesize;
 
 	/* Announce our intentions */

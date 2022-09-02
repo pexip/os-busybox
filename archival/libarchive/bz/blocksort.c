@@ -107,7 +107,7 @@ void fallbackSimpleSort(uint32_t* fmap,
 #define FALLBACK_QSORT_SMALL_THRESH 10
 #define FALLBACK_QSORT_STACK_SIZE   100
 
-static
+static NOINLINE
 void fallbackQSort3(uint32_t* fmap,
 		uint32_t* eclass,
 		int32_t   loSt,
@@ -459,7 +459,7 @@ int mainGtU(EState* state,
  * usually small, typically <= 20.
  */
 static
-const uint32_t incs[14] = {
+const uint32_t incs[14] ALIGN4 = {
 	1, 4, 13, 40, 121, 364, 1093, 3280,
 	9841, 29524, 88573, 265720,
 	797161, 2391484

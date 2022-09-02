@@ -27,13 +27,13 @@
 
 #include "libbb.h"
 
-#if ULONG_MAX == 0xffffffff
+#if ULLONG_MAX == 0xffffffff
 # define TABS "\t"
-# define AFMT "8"
+# define AFMTLL "8"
 # define DASHES ""
 #else
 # define TABS "\t\t"
-# define AFMT "16"
+# define AFMTLL "16"
 # define DASHES "--------"
 #endif
 
@@ -46,7 +46,7 @@ static void print_smaprec(struct smaprec *currec, void *data)
 {
 	unsigned opt = (uintptr_t)data;
 
-	printf("%0" AFMT "lx ", currec->smap_start);
+	printf("%0" AFMTLL "llx ", currec->smap_start);
 
 	if (opt & OPT_x)
 		printf("%7lu %7lu %7lu %7lu ",

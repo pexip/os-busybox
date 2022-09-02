@@ -10,7 +10,6 @@
 //config:config IPCS
 //config:	bool "ipcs (11 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	The ipcs utility is used to provide information on the currently
 //config:	allocated System V interprocess (IPC) objects in the system.
@@ -467,7 +466,7 @@ static void print_shm(int shmid)
 	struct ipc_perm *ipcp = &shmds.shm_perm;
 
 	if (shmctl(shmid, IPC_STAT, &shmds) == -1) {
-		bb_perror_msg("shmctl");
+		bb_simple_perror_msg("shmctl");
 		return;
 	}
 
@@ -493,7 +492,7 @@ static void print_msg(int msqid)
 	struct ipc_perm *ipcp = &buf.msg_perm;
 
 	if (msgctl(msqid, IPC_STAT, &buf) == -1) {
-		bb_perror_msg("msgctl");
+		bb_simple_perror_msg("msgctl");
 		return;
 	}
 
@@ -527,7 +526,7 @@ static void print_sem(int semid)
 
 	arg.buf = &semds;
 	if (semctl(semid, 0, IPC_STAT, arg)) {
-		bb_perror_msg("semctl");
+		bb_simple_perror_msg("semctl");
 		return;
 	}
 
@@ -555,7 +554,7 @@ static void print_sem(int semid)
 		zcnt = semctl(semid, i, GETZCNT, arg);
 		pid = semctl(semid, i, GETPID, arg);
 		if (val < 0 || ncnt < 0 || zcnt < 0 || pid < 0) {
-			bb_perror_msg_and_die("semctl");
+			bb_simple_perror_msg_and_die("semctl");
 		}
 		printf("%-10u %-10d %-10d %-10d %-10d\n", i, val, ncnt, zcnt, pid);
 	}

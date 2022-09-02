@@ -4,7 +4,7 @@
  */
 #include "libbb.h"
 #include "bb_archive.h"
-#include "ar.h"
+#include "ar_.h"
 
 void FAST_FUNC unpack_ar_archive(archive_handle_t *ar_archive)
 {
@@ -12,7 +12,7 @@ void FAST_FUNC unpack_ar_archive(archive_handle_t *ar_archive)
 
 	xread(ar_archive->src_fd, magic, AR_MAGIC_LEN);
 	if (!is_prefixed_with(magic, AR_MAGIC)) {
-		bb_error_msg_and_die("invalid ar magic");
+		bb_simple_error_msg_and_die("invalid ar magic");
 	}
 	ar_archive->offset += AR_MAGIC_LEN;
 

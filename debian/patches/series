@@ -1,10 +1,6 @@
-# cherry-picked from upstream
-cherry-pick.1_30_0-35-g74d9f1ba3.udhcpc-when-decoding-dhcp-subnet-ensure-it-is-4-bytes-long.patch
-cherry-pick.1_30_0-110-gbb3a9531b.ip-fix-ip-o-link.patch
-
-# The following patches will likely be merged soon
-u-mount-FreeBSD-support.patch
-swaponoff-FreeBSD-support.patch
+# The following patches need significant re-working for the current version
+# u-mount-FreeBSD-support.patch
+# swaponoff-FreeBSD-support.patch
 
 # other patches
 shell-ash-export-HOME.patch
@@ -14,4 +10,4 @@ stop-checking-ancient-kernel-version.patch
 revert-9c143ce52da11ec3d21a3491c3749841d3dc10f0.patch
 temp-deb-installer-hack.patch
 install-readlink-in-bin.patch
-ignore-ip-valid_lft.patch
+spelling.diff

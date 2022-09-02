@@ -35,7 +35,6 @@
 //config:	bool "Enable -o time and -o etime specifiers"
 //config:	default y
 //config:	depends on (PS || MINIPS) && DESKTOP
-//config:	select PLATFORM_LINUX
 //config:
 //config:config FEATURE_PS_UNUSUAL_SYSTEMS
 //config:	bool "Support Linux prior to 2.4.0 and non-ELF systems"
@@ -376,7 +375,7 @@ static void func_pcpu(char *buf, int size, const procps_status_t *ps)
 }
 */
 
-static const ps_out_t out_spec[] = {
+static const ps_out_t out_spec[] ALIGN_PTR = {
 /* Mandated by http://pubs.opengroup.org/onlinepubs/9699919799/utilities/ps.html: */
 	{ 8                  , "user"  ,"USER"   ,func_user  ,PSSCAN_UIDGID  },
 	{ 8                  , "group" ,"GROUP"  ,func_group ,PSSCAN_UIDGID  },
@@ -444,17 +443,19 @@ static void parse_o(char* opt)
 			opt = comma + 1;
 			continue;
 		}
-		break;
-	}
-	// opt points to last spec in comma separated list.
-	// This one can have =HEADER part.
-	new = new_out_t();
-	if (equal)
-		*equal = '\0';
-	*new = *find_out_spec(opt);
-	if (equal) {
-		*equal = '=';
-		new->header = equal + 1;
+		// opt points to last spec in comma separated list.
+		// This one can have =HEADER part.
+		new = new_out_t();
+		if (equal)
+			*equal = '\0';
+		*new = *find_out_spec(opt);
+		if (!equal)
+			break;
+		*equal++ = '=';
+		new->header = equal;
+		comma = strchr(equal, ',');
+		if (comma)
+			*comma = '\0';
 		// POSIX: the field widths shall be ... at least as wide as
 		// the header text (default or overridden value).
 		// If the header text is null, such as -o user=,
@@ -462,10 +463,12 @@ static void parse_o(char* opt)
 		// default header text
 		if (new->header[0]) {
 			new->width = strlen(new->header);
-			print_header = 1;
 		}
-	} else
-		print_header = 1;
+		if (!comma)
+			break;
+		//*comma = ','; /* no, new->header should stay NUL-terminated */
+		opt = comma + 1;
+	}
 }
 
 static void alloc_line_buffer(void)
@@ -533,7 +536,7 @@ static void format_process(const procps_status_t *ps)
 		len = out[i].width - len + 1;
 		if (++i == out_cnt) /* do not pad last field */
 			break;
-		p += sprintf(p, "%*s", len, "");
+		p += sprintf(p, "%*s", len, " "); /* " ", not "", to ensure separation of fields */
 	}
 	printf("%.*s\n", terminal_width, buffer);
 }

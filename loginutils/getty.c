@@ -168,7 +168,7 @@ static void parse_speeds(char *arg)
 		/* note: arg "0" turns into speed B0 */
 		G.numspeed++;
 		if (G.numspeed > MAX_SPEED)
-			bb_error_msg_and_die("too many alternate speeds");
+			bb_simple_error_msg_and_die("too many alternate speeds");
 	}
 	debug("exiting parse_speeds\n");
 }
@@ -230,7 +230,7 @@ static void open_tty(void)
 		 * Make sure it is open for read/write.
 		 */
 		if ((fcntl(0, F_GETFL) & (O_RDWR|O_RDONLY|O_WRONLY)) != O_RDWR)
-			bb_error_msg_and_die("stdin is not open for read/write");
+			bb_simple_error_msg_and_die("stdin is not open for read/write");
 
 		/* Try to get real tty name instead of "-" */
 		n = xmalloc_ttyname(0);
@@ -243,7 +243,7 @@ static void open_tty(void)
 static void set_tty_attrs(void)
 {
 	if (tcsetattr_stdin_TCSANOW(&G.tty_attrs) < 0)
-		bb_perror_msg_and_die("tcsetattr");
+		bb_simple_perror_msg_and_die("tcsetattr");
 }
 
 /* We manipulate tty_attrs this way:
@@ -404,7 +404,7 @@ static void finalize_tty_attrs(void)
 	set_tty_attrs();
 
 	/* Now the newline character should be properly written */
-	full_write(STDOUT_FILENO, "\n", 1);
+	full_write1_str("\n");
 }
 
 /* extract baud rate from modem status message */
@@ -434,7 +434,7 @@ static void auto_baud(void)
 	 * Wait for a while, then read everything the modem has said so far and
 	 * try to extract the speed of the dial-in call.
 	 */
-	sleep(1);
+	sleep1();
 	nread = safe_read(STDIN_FILENO, G.line_buf, sizeof(G.line_buf) - 1);
 	if (nread > 0) {
 		int speed;
@@ -485,7 +485,7 @@ static char *get_logname(void)
 				finalize_tty_attrs();
 				if (errno == EINTR || errno == EIO)
 					exit(EXIT_SUCCESS);
-				bb_perror_msg_and_die(bb_msg_read_error);
+				bb_simple_perror_msg_and_die(bb_msg_read_error);
 			}
 
 			switch (c) {
@@ -498,13 +498,13 @@ static char *get_logname(void)
 			case 0x7f:
 				G.tty_attrs.c_cc[VERASE] = c;
 				if (bp > G.line_buf) {
-					full_write(STDOUT_FILENO, "\010 \010", 3);
+					full_write1_str("\010 \010");
 					bp--;
 				}
 				break;
 			case CTL('U'):
 				while (bp > G.line_buf) {
-					full_write(STDOUT_FILENO, "\010 \010", 3);
+					full_write1_str("\010 \010");
 					bp--;
 				}
 				break;
@@ -582,7 +582,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 			//	" sid %d pgid %d",
 			//	pid, getppid(),
 			//	getsid(0), getpgid(0));
-			bb_perror_msg_and_die("setsid");
+			bb_simple_perror_msg_and_die("setsid");
 			/*
 			 * When we can end up here?
 			 * Example: setsid() fails when run alone in interactive shell:
@@ -651,13 +651,13 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	tsid = tcgetsid(STDIN_FILENO);
 	if (tsid < 0 || pid != tsid) {
 		if (ioctl(STDIN_FILENO, TIOCSCTTY, /*force:*/ (long)1) < 0)
-			bb_perror_msg_and_die("TIOCSCTTY");
+			bb_simple_perror_msg_and_die("TIOCSCTTY");
 	}
 
 #ifdef __linux__
 	/* Make ourself a foreground process group within our session */
 	if (tcsetpgrp(STDIN_FILENO, pid) < 0)
-		bb_perror_msg_and_die("tcsetpgrp");
+		bb_simple_perror_msg_and_die("tcsetpgrp");
 #endif
 
 	/*
@@ -669,7 +669,7 @@ int getty_main(int argc UNUSED_PARAM, char **argv)
 	 * 5 seconds seems to be a good value.
 	 */
 	if (tcgetattr(STDIN_FILENO, &G.tty_attrs) < 0)
-		bb_perror_msg_and_die("tcgetattr");
+		bb_simple_perror_msg_and_die("tcgetattr");
 
 	/* Update the utmp file. This tty is ours now! */
 	update_utmp(pid, LOGIN_PROCESS, G.tty_name, "LOGIN", G.fakehost);

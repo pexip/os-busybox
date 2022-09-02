@@ -505,7 +505,7 @@ static void cpuid(unsigned int *eax, unsigned int *ebx, unsigned int *ecx,
 				unsigned int *edx)
 {
 	/* EAX value specifies what information to return */
-	__asm__(
+	asm (
 		"	pushl %%ebx\n"     /* Save EBX */
 		"	cpuid\n"
 		"	movl %%ebx, %1\n"  /* Save content of EBX */
@@ -657,7 +657,7 @@ static void show_timerstats(void)
 		}
 	} else {
 		bb_putchar('\n');
-		bb_error_msg("no stats available; run as root or"
+		bb_simple_error_msg("no stats available; run as root or"
 				" enable the timer_stats module");
 	}
 }
@@ -707,7 +707,7 @@ int powertop_main(int argc UNUSED_PARAM, char UNUSED_PARAM **argv)
 
 	/* Print warning when we don't have superuser privileges */
 	if (geteuid() != 0)
-		bb_error_msg("run as root to collect enough information");
+		bb_simple_error_msg("run as root to collect enough information");
 
 	/* Get number of CPUs */
 	G.total_cpus = get_cpu_count();
@@ -818,7 +818,7 @@ int powertop_main(int argc UNUSED_PARAM, char UNUSED_PARAM **argv)
 
 		for (i = 0; i < MAX_CSTATE_COUNT + 2; i++)
 			if (cstate_lines[i][0])
-				fputs(cstate_lines[i], stdout);
+				fputs_stdout(cstate_lines[i]);
 
 		i = process_timer_stats();
 #if ENABLE_FEATURE_POWERTOP_PROCIRQ

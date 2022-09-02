@@ -68,11 +68,12 @@ int sleep_main(int argc UNUSED_PARAM, char **argv)
 	if (!*argv)
 		bb_show_usage();
 
+	/* GNU sleep accepts "inf", "INF", "infinity" and "INFINITY" */
+	if (strncasecmp(argv[0], "inf", 3) == 0)
+		for (;;)
+			sleep(INT_MAX);
+
 #if ENABLE_FEATURE_FANCY_SLEEP
-# if ENABLE_FLOAT_DURATION
-	/* undo busybox.c setlocale */
-	setlocale(LC_NUMERIC, "C");
-# endif
 	duration = 0;
 	do {
 		duration += parse_duration_str(*argv);

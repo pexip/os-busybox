@@ -10,7 +10,6 @@
 //config:config FDISK
 //config:	bool "fdisk (37 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	The fdisk utility is used to divide hard disks into one or more
 //config:	logical disks, which are generally called partitions. This utility
@@ -186,8 +185,11 @@ struct hd_geometry {
 
 #define HDIO_GETGEO     0x0301  /* get device geometry */
 
-/* TODO: #if ENABLE_FEATURE_FDISK_WRITABLE */
+/* TODO: just #if ENABLE_FEATURE_FDISK_WRITABLE */
 /* (currently fdisk_sun/sgi.c do not have proper WRITABLE #ifs) */
+#if ENABLE_FEATURE_FDISK_WRITABLE \
+ || ENABLE_FEATURE_SGI_LABEL \
+ || ENABLE_FEATURE_SUN_LABEL
 static const char msg_building_new_label[] ALIGN1 =
 "Building a new %s. Changes will remain in memory only,\n"
 "until you decide to write them. After that the previous content\n"
@@ -195,7 +197,7 @@ static const char msg_building_new_label[] ALIGN1 =
 
 static const char msg_part_already_defined[] ALIGN1 =
 "Partition %u is already defined, delete it before re-adding\n";
-/* #endif */
+#endif
 
 
 struct partition {
@@ -230,8 +232,8 @@ struct pte {
 };
 
 #define unable_to_open "can't open '%s'"
-#define unable_to_read "can't read from %s"
-#define unable_to_seek "can't seek on %s"
+#define unable_to_read "can't read '%s'"
+#define unable_to_seek "can't seek '%s'"
 
 enum label_type {
 	LABEL_DOS, LABEL_SUN, LABEL_SGI, LABEL_AIX, LABEL_OSF, LABEL_GPT
@@ -299,15 +301,12 @@ static int get_boot(enum action what);
 static int get_boot(void);
 #endif
 
-#define PLURAL   0
-#define SINGULAR 1
-
 static sector_t get_start_sect(const struct partition *p);
 static sector_t get_nr_sects(const struct partition *p);
 
 /* DOS partition types */
 
-static const char *const i386_sys_types[] = {
+static const char *const i386_sys_types[] ALIGN_PTR = {
 	"\x00" "Empty",
 	"\x01" "FAT12",
 	"\x04" "FAT16 <32M",
@@ -347,6 +346,7 @@ static const char *const i386_sys_types[] = {
 	"\xa8" "Darwin UFS",
 	"\xa9" "NetBSD",
 	"\xab" "Darwin boot",
+	"\xaf" "HFS / HFS+",
 	"\xb7" "BSDI fs",
 	"\xb8" "BSDI swap",
 	"\xbe" "Solaris boot",
@@ -393,15 +393,12 @@ static const char *const i386_sys_types[] = {
 	"\xc6" "DRDOS/sec (FAT-16)",
 	"\xc7" "Syrinx",
 	"\xda" "Non-FS data",
-	"\xdb" "CP/M / CTOS / ...",/* CP/M or Concurrent CP/M or
-	                              Concurrent DOS or CTOS */
+	"\xdb" "CP/M / CTOS / ...",/* CP/M or Concurrent CP/M or Concurrent DOS or CTOS */
 	"\xde" "Dell Utility",     /* Dell PowerEdge Server utilities */
 	"\xdf" "BootIt",           /* BootIt EMBRM */
-	"\xe1" "DOS access",       /* DOS access or SpeedStor 12-bit FAT
-	                              extended partition */
+	"\xe1" "DOS access",       /* DOS access or SpeedStor 12-bit FAT extended partition */
 	"\xe3" "DOS R/O",          /* DOS R/O or SpeedStor */
-	"\xe4" "SpeedStor",        /* SpeedStor 16-bit FAT extended
-	                              partition < 1024 cyl. */
+	"\xe4" "SpeedStor",        /* SpeedStor 16-bit FAT extended partition <1024 cyl. */
 	"\xf1" "SpeedStor",
 	"\xf4" "SpeedStor",        /* SpeedStor large partition */
 	"\xfe" "LANstep",          /* SpeedStor >1024 cyl. or LANstep */
@@ -511,7 +508,7 @@ static sector_t bb_BLKGETSIZE_sectors(int fd)
 			 * we support can't record more than 32 bit
 			 * sector counts or offsets
 			 */
-			bb_error_msg("device has more than 2^32 sectors, can't use all of them");
+			bb_simple_error_msg("device has more than 2^32 sectors, can't use all of them");
 			v64 = (uint32_t)-1L;
 		}
 		return v64;
@@ -591,18 +588,18 @@ partname(const char *dev, int pno, int lth)
 	return bufp;
 }
 
+#if ENABLE_FEATURE_SGI_LABEL || ENABLE_FEATURE_OSF_LABEL
 static ALWAYS_INLINE struct partition *
 get_part_table(int i)
 {
 	return ptes[i].part_table;
 }
+#endif
 
-static const char *
-str_units(int n)
-{      /* n==1: use singular */
-	if (n == 1)
-		return display_in_cyl_units ? "cylinder" : "sector";
-	return display_in_cyl_units ? "cylinders" : "sectors";
+static ALWAYS_INLINE const char *
+str_units(void)
+{
+	return display_in_cyl_units ? "cylinder" : "sector";
 }
 
 static int
@@ -1778,8 +1775,8 @@ change_units(void)
 {
 	display_in_cyl_units = !display_in_cyl_units;
 	update_units();
-	printf("Changing display/entry units to %s\n",
-		str_units(PLURAL));
+	printf("Changing display/entry units to %ss\n",
+		str_units());
 }
 
 static void
@@ -2030,8 +2027,7 @@ check_consistency(const struct partition *p, int partition)
 static void
 list_disk_geometry(void)
 {
-	ullong bytes = ((ullong)total_number_of_sectors << 9);
-	ullong xbytes = bytes / (1024*1024);
+	ullong xbytes = total_number_of_sectors / (1024*1024 / 512);
 	char x = 'M';
 
 	if (xbytes >= 10000) {
@@ -2041,11 +2037,12 @@ list_disk_geometry(void)
 	}
 	printf("Disk %s: %llu %cB, %llu bytes, %"SECT_FMT"u sectors\n"
 		"%u cylinders, %u heads, %u sectors/track\n"
-		"Units: %s of %u * %u = %u bytes\n\n",
+		"Units: %ss of %u * %u = %u bytes\n"
+		"\n",
 		disk_device, xbytes, x,
-		bytes, total_number_of_sectors,
+		((ullong)total_number_of_sectors * 512), total_number_of_sectors,
 		g_cylinders, g_heads, g_sectors,
-		str_units(PLURAL),
+		str_units(),
 		units_per_sector, sector_size, units_per_sector * sector_size
 	);
 }
@@ -2486,7 +2483,7 @@ add_partition(int n, int sys)
 		for (i = 0; i < g_partitions; i++)
 			first[i] = (cround(first[i]) - 1) * units_per_sector;
 
-	snprintf(mesg, sizeof(mesg), "First %s", str_units(SINGULAR));
+	snprintf(mesg, sizeof(mesg), "First %s", str_units());
 	do {
 		temp = start;
 		for (i = 0; i < g_partitions; i++) {
@@ -2548,7 +2545,7 @@ add_partition(int n, int sys)
 	} else {
 		snprintf(mesg, sizeof(mesg),
 			 "Last %s or +size{,K,M,G,T}",
-			 str_units(SINGULAR)
+			 str_units()
 		);
 		stop = read_int(cround(start), cround(limit), cround(limit), cround(start), mesg);
 		if (display_in_cyl_units) {
@@ -2673,7 +2670,7 @@ reread_partition_table(int leave)
 	/* Users with slow external USB disks on a 320MHz ARM system (year 2011)
 	 * report that sleep is needed, otherwise BLKRRPART may fail with -EIO:
 	 */
-	sleep(1);
+	sleep1();
 	i = ioctl_or_perror(dev_fd, BLKRRPART, NULL,
 			"WARNING: rereading partition table "
 			"failed, kernel still uses old table");

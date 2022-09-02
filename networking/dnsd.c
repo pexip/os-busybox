@@ -133,7 +133,7 @@ static struct dns_entry *parse_conf_file(const char *fileconf)
 		}
 
 		if (OPT_verbose)
-			bb_error_msg("name:%s, ip:%s", token[0], token[1]);
+			bb_info_msg("name:%s, ip:%s", token[0], token[1]);
 
 		/* sizeof(*m) includes 1 byte for m->name[0] */
 		m = xzalloc(sizeof(*m) + strlen(token[0]) + 1);
@@ -379,7 +379,8 @@ Domain name in a message can be represented as either:
  */
 static int process_packet(struct dns_entry *conf_data,
 		uint32_t conf_ttl,
-		uint8_t *buf)
+		uint8_t *buf,
+		unsigned buflen)
 {
 	struct dns_head *head;
 	struct type_and_class *unaligned_type_class;
@@ -395,16 +396,13 @@ static int process_packet(struct dns_entry *conf_data,
 
 	head = (struct dns_head *)buf;
 	if (head->nquer == 0) {
-		bb_error_msg("packet has 0 queries, ignored");
+		bb_simple_error_msg("packet has 0 queries, ignored");
 		return 0; /* don't reply */
 	}
 	if (head->flags & htons(0x8000)) { /* QR bit */
-		bb_error_msg("response packet, ignored");
+		bb_simple_error_msg("response packet, ignored");
 		return 0; /* don't reply */
 	}
-	/* QR = 1 "response", RCODE = 4 "Not Implemented" */
-	outr_flags = htons(0x8000 | 4);
-	err_msg = NULL;
 
 	/* start of query string */
 	query_string = (void *)(head + 1);
@@ -415,6 +413,15 @@ static int process_packet(struct dns_entry *conf_data,
 	query_len += sizeof(*unaligned_type_class);
 	/* where to append answer block */
 	answb = (void *)(unaligned_type_class + 1);
+
+	if (buflen < answb - buf) {
+		bb_simple_error_msg("packet too short");
+		return 0; /* don't reply */
+	}
+
+	/* QR = 1 "response", RCODE = 4 "Not Implemented" */
+	outr_flags = htons(0x8000 | 4);
+	err_msg = NULL;
 
 	/* OPCODE != 0 "standard query"? */
 	if ((head->flags & htons(0x7800)) != 0) {
@@ -438,7 +445,7 @@ static int process_packet(struct dns_entry *conf_data,
 	answstr = table_lookup(conf_data, type, query_string);
 #if DEBUG
 	/* Shows lengths instead of dots, unusable for !DEBUG */
-	bb_error_msg("'%s'->'%s'", query_string, answstr);
+	bb_info_msg("'%s'->'%s'", query_string, answstr);
 #endif
 	outr_rlen = 4;
 	if (answstr && type == htons(REQ_PTR)) {
@@ -474,7 +481,7 @@ static int process_packet(struct dns_entry *conf_data,
 	 * RCODE = 0 "success"
 	 */
 	if (OPT_verbose)
-		bb_error_msg("returning positive reply");
+		bb_simple_info_msg("returning positive reply");
 	outr_flags = htons(0x8000 | 0x0400 | 0);
 	/* we have one answer */
 	head->nansw = htons(1);
@@ -539,7 +546,7 @@ int dnsd_main(int argc UNUSED_PARAM, char **argv)
 
 	{
 		char *p = xmalloc_sockaddr2dotted(&lsa->u.sa);
-		bb_error_msg("accepting UDP packets on %s", p);
+		bb_info_msg("accepting UDP packets on %s", p);
 		free(p);
 	}
 
@@ -557,9 +564,9 @@ int dnsd_main(int argc UNUSED_PARAM, char **argv)
 			continue;
 		}
 		if (OPT_verbose)
-			bb_error_msg("got UDP packet");
+			bb_simple_info_msg("got UDP packet");
 		buf[r] = '\0'; /* paranoia */
-		r = process_packet(conf_data, conf_ttl, buf);
+		r = process_packet(conf_data, conf_ttl, buf, r);
 		if (r <= 0)
 			continue;
 		send_to_from(udps, buf, r, 0, &from->u.sa, &to->u.sa, lsa->len);

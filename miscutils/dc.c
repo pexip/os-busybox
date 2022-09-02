@@ -35,23 +35,26 @@ enum { STACK_SIZE = (COMMON_BUFSIZE - offsetof(struct globals, stack)) / sizeof(
 	base = 10; \
 } while (0)
 
-static void check_under(void)
+static unsigned check_under(void)
 {
-	if (pointer == 0)
-		bb_error_msg_and_die("stack underflow");
+	unsigned p = pointer;
+	if (p == 0)
+		bb_simple_error_msg_and_die("stack underflow");
+	return p - 1;
 }
 
 static void push(double a)
 {
 	if (pointer >= STACK_SIZE)
-		bb_error_msg_and_die("stack overflow");
+		bb_simple_error_msg_and_die("stack overflow");
 	stack[pointer++] = a;
 }
 
 static double pop(void)
 {
-	check_under();
-	return stack[--pointer];
+	unsigned p = check_under();
+	pointer = p;
+	return stack[p];
 }
 
 static void add(void)
@@ -90,6 +93,19 @@ static void divide(void)
 static void mod(void)
 {
 	data_t d = pop();
+
+	/* compat with dc (GNU bc 1.07.1) 1.4.1:
+	 * $ dc -e '4 0 % p'
+	 * dc: remainder by zero
+	 * 0
+	 */
+	if (d == 0) {
+		bb_simple_error_msg("remainder by zero");
+		pop();
+		push(0);
+		return;
+	}
+	/* ^^^^ without this, we simply get SIGFPE and die */
 
 	push((data_t) pop() % d);
 }
@@ -171,8 +187,7 @@ static void print_stack_no_pop(void)
 
 static void print_no_pop(void)
 {
-	check_under();
-	print_base(stack[pointer-1]);
+	print_base(stack[check_under()]);
 }
 
 struct op {
@@ -180,7 +195,7 @@ struct op {
 	void (*function) (void);
 };
 
-static const struct op operators[] = {
+static const struct op operators[] ALIGN_PTR = {
 #if ENABLE_FEATURE_DC_LIBM
 	{"^",   power},
 //	{"exp", power},
@@ -214,6 +229,7 @@ static void stack_machine(const char *argument)
 	const struct op *o;
 
  next:
+//TODO: needs setlocale(LC_NUMERIC, "C")?
 	number = strtod(argument, &end);
 	if (end != argument) {
 		argument = end;

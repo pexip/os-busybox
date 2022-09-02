@@ -25,6 +25,15 @@
 	" (default "CONFIG_FEATURE_DEFAULT_PASSWD_ALGO")"
 #endif
 
+#if ENABLE_FEATURE_HWCLOCK_ADJTIME_FHS
+# define ADJTIME_PATH "/var/lib/hwclock/adjtime"
+#else
+# define ADJTIME_PATH "/etc/adjtime"
+#endif
+
+#define STR1(s) #s
+#define STR(s)  STR1(s)
+
 INSERT
 
 #define busybox_notes_usage \

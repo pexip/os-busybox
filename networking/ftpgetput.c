@@ -43,7 +43,7 @@
 //usage:     "\n	-v	Verbose"
 //usage:     "\n	-u USER	Username"
 //usage:     "\n	-p PASS	Password"
-//usage:     "\n	-P NUM	Port"
+//usage:     "\n	-P PORT"
 //usage:
 //usage:#define ftpput_trivial_usage
 //usage:       "[OPTIONS] HOST [REMOTE_FILE] LOCAL_FILE"
@@ -52,7 +52,7 @@
 //usage:     "\n	-v	Verbose"
 //usage:     "\n	-u USER	Username"
 //usage:     "\n	-p PASS	Password"
-//usage:     "\n	-P NUM	Port number"
+//usage:     "\n	-P PORT"
 
 #include "libbb.h"
 #include "common_bufsiz.h"
@@ -214,7 +214,7 @@ int ftp_receive(const char *local_path, char *server_path)
 		struct stat sbuf;
 		/* lstat would be wrong here! */
 		if (stat(local_path, &sbuf) < 0) {
-			bb_perror_msg_and_die("stat");
+			bb_simple_perror_msg_and_die("stat");
 		}
 		if (sbuf.st_size > 0) {
 			beg_range = sbuf.st_size;
@@ -290,8 +290,7 @@ static const char ftpgetput_longopts[] ALIGN1 =
 int ftpgetput_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ftpgetput_main(int argc UNUSED_PARAM, char **argv)
 {
-	const char *port = "ftp";
-	/* socket to ftp server */
+	const char *port = NULL;
 
 #if ENABLE_FTPPUT && !ENABLE_FTPGET
 # define ftp_action ftp_send

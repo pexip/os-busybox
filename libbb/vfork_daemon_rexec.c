@@ -28,6 +28,22 @@
 # ifndef PR_GET_NAME
 # define PR_GET_NAME 16
 # endif
+# if ENABLE_FEATURE_SH_STANDALONE || ENABLE_FEATURE_PREFER_APPLETS || !BB_MMU
+int FAST_FUNC re_execed_comm(void)
+{
+	const char *e, *expected_comm;
+	char comm[16];
+
+	BUILD_BUG_ON(CONFIG_BUSYBOX_EXEC_PATH[0] != '/');
+	e = CONFIG_BUSYBOX_EXEC_PATH;
+	/* Hopefully (strrchr(e) - e) evaluates to constant at compile time: */
+	expected_comm = bb_busybox_exec_path + (strrchr(e, '/') - e) + 1;
+
+	prctl(PR_GET_NAME, (long)comm, 0, 0, 0);
+	//bb_error_msg("comm:'%.*s' expected:'%s'", 16, comm, expected_comm);
+	return strcmp(comm, expected_comm) == 0;
+}
+# endif
 void FAST_FUNC set_task_comm(const char *comm)
 {
 	/* okay if too long (truncates) */
@@ -109,8 +125,13 @@ int FAST_FUNC run_nofork_applet(int applet_no, char **argv)
 		char *tmp_argv[argc+1];
 		memcpy(tmp_argv, argv, (argc+1) * sizeof(tmp_argv[0]));
 		applet_name = tmp_argv[0];
+
+		/* longjmp's (instead of returning) if --help is seen */
+		show_usage_if_dash_dash_help(applet_no, argv);
+
 		/* Finally we can call NOFORK applet's main() */
 		rc = applet_main[applet_no](argc, tmp_argv);
+
 		/* Important for shells: `which CMD` was failing */
 		fflush_all();
 	} else {
@@ -263,12 +284,6 @@ void FAST_FUNC bb_daemonize_or_rexec(int flags, char **argv)
 	if (flags & DAEMON_CHDIR_ROOT)
 		xchdir("/");
 
-	if (flags & DAEMON_DEVNULL_STDIO) {
-		close(0);
-		close(1);
-		close(2);
-	}
-
 	fd = open(bb_dev_null, O_RDWR);
 	if (fd < 0) {
 		/* NB: we can be called as bb_sanitize_stdio() from init
@@ -278,8 +293,15 @@ void FAST_FUNC bb_daemonize_or_rexec(int flags, char **argv)
 		fd = xopen("/", O_RDONLY); /* don't believe this can fail */
 	}
 
-	while ((unsigned)fd < 2)
-		fd = dup(fd); /* have 0,1,2 open at least to /dev/null */
+	if (flags & DAEMON_DEVNULL_STDIO) {
+		xdup2(fd, 0);
+		xdup2(fd, 1);
+		xdup2(fd, 2);
+	} else {
+		/* have 0,1,2 open at least to /dev/null */
+		while ((unsigned)fd < 2)
+			fd = dup(fd);
+	}
 
 	if (!(flags & DAEMON_ONLY_SANITIZE)) {
 
@@ -292,14 +314,14 @@ void FAST_FUNC bb_daemonize_or_rexec(int flags, char **argv)
 		dup2(fd, 0);
 		dup2(fd, 1);
 		dup2(fd, 2);
-		if (flags & DAEMON_DOUBLE_FORK) {
-			/* On Linux, session leader can acquire ctty
-			 * unknowingly, by opening a tty.
-			 * Prevent this: stop being a session leader.
-			 */
-			if (fork_or_rexec(argv))
-				_exit(EXIT_SUCCESS); /* parent */
-		}
+//		if (flags & DAEMON_DOUBLE_FORK) {
+//			/* On Linux, session leader can acquire ctty
+//			 * unknowingly, by opening a tty.
+//			 * Prevent this: stop being a session leader.
+//			 */
+//			if (fork_or_rexec(argv))
+//				_exit(EXIT_SUCCESS); /* parent */
+//		}
 	}
 	while (fd > 2) {
 		close(fd--);

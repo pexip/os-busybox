@@ -9,7 +9,6 @@
 //config:config SETPRIV
 //config:	bool "setpriv (6.6 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	select LONG_OPTS
 //config:	help
 //config:	Run a program with different Linux privilege settings.
@@ -48,7 +47,7 @@
 //kbuild:lib-$(CONFIG_SETPRIV) += setpriv.o
 
 //usage:#define setpriv_trivial_usage
-//usage:	"[OPTIONS] PROG [ARGS]"
+//usage:	"[OPTIONS] PROG ARGS"
 //usage:#define setpriv_full_usage "\n\n"
 //usage:       "Run PROG with different privilege settings\n"
 //usage:	IF_FEATURE_SETPRIV_DUMP(
@@ -145,10 +144,11 @@ static unsigned parse_cap(const char *cap)
 static void set_inh_caps(char *capstring)
 {
 	struct caps caps;
+	char *string;
 
 	getcaps(&caps);
 
-	capstring = strtok(capstring, ",");
+	capstring = strtok_r(capstring, ",", &string);
 	while (capstring) {
 		unsigned cap;
 
@@ -160,30 +160,30 @@ static void set_inh_caps(char *capstring)
 			caps.data[CAP_TO_INDEX(cap)].inheritable |= CAP_TO_MASK(cap);
 		else
 			caps.data[CAP_TO_INDEX(cap)].inheritable &= ~CAP_TO_MASK(cap);
-		capstring = strtok(NULL, ",");
+		capstring = strtok_r(NULL, ",", &string);
 	}
 
 	if (capset(&caps.header, caps.data) != 0)
-		bb_perror_msg_and_die("capset");
+		bb_simple_perror_msg_and_die("capset");
 }
 
 static void set_ambient_caps(char *string)
 {
 	char *cap;
 
-	cap = strtok(string, ",");
+	cap = strtok_r(string, ",", &string);
 	while (cap) {
 		unsigned idx;
 
 		idx = parse_cap(cap);
 		if (cap[0] == '+') {
 			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, idx, 0, 0) < 0)
-				bb_perror_msg("cap_ambient_raise");
+				bb_simple_perror_msg("cap_ambient_raise");
 		} else {
 			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, idx, 0, 0) < 0)
-				bb_perror_msg("cap_ambient_lower");
+				bb_simple_perror_msg("cap_ambient_lower");
 		}
-		cap = strtok(NULL, ",");
+		cap = strtok_r(NULL, ",", &string);
 	}
 }
 #endif /* FEATURE_SETPRIV_CAPABILITIES */
@@ -236,7 +236,7 @@ static int dump(void)
 		unsigned idx = CAP_TO_INDEX(i);
 		if (idx >= caps.u32s) {
 			printf("\nindex: %u u32s: %u capability: %u\n", idx, caps.u32s, i);
-			bb_error_msg_and_die("unsupported capability");
+			bb_simple_error_msg_and_die("unsupported capability");
 		}
 		if (caps.data[idx].inheritable & CAP_TO_MASK(i)) {
 			printf_cap(fmt, i);

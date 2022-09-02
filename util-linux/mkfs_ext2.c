@@ -10,14 +10,12 @@
 //config:config MKE2FS
 //config:	bool "mke2fs (10 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Utility to create EXT2 filesystems.
 //config:
 //config:config MKFS_EXT2
 //config:	bool "mkfs.ext2 (10 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Alias to "mke2fs".
 
@@ -133,7 +131,7 @@ static void allocate(uint8_t *bitmap, uint32_t blocksize, uint32_t start, uint32
 static uint32_t has_super(uint32_t x)
 {
 	// 0, 1 and powers of 3, 5, 7 up to 2^32 limit
-	static const uint32_t supers[] = {
+	static const uint32_t supers[] ALIGN4 = {
 		0, 1, 3, 5, 7, 9, 25, 27, 49, 81, 125, 243, 343, 625, 729,
 		2187, 2401, 3125, 6561, 15625, 16807, 19683, 59049, 78125,
 		117649, 177147, 390625, 531441, 823543, 1594323, 1953125,
@@ -266,7 +264,7 @@ int mkfs_ext2_main(int argc UNUSED_PARAM, char **argv)
 	// N.B. what if we format a file? find_mount_point will return false negative since
 	// it is loop block device which is mounted!
 	if (find_mount_point(argv[0], 0))
-		bb_error_msg_and_die("can't format mounted filesystem");
+		bb_simple_error_msg_and_die("can't format mounted filesystem");
 
 	// get size in kbytes
 	kilobytes = get_volume_size_in_bytes(fd, argv[1], 1024, /*extend:*/ !(option_mask32 & OPT_n)) / 1024;
@@ -326,11 +324,11 @@ int mkfs_ext2_main(int argc UNUSED_PARAM, char **argv)
 	kilobytes >>= (blocksize_log2 - EXT2_MIN_BLOCK_LOG_SIZE);
 	nblocks = kilobytes;
 	if (nblocks != kilobytes)
-		bb_error_msg_and_die("block count doesn't fit in 32 bits");
+		bb_simple_error_msg_and_die("block count doesn't fit in 32 bits");
 #define kilobytes kilobytes_unused_after_this
 	// Experimentally, standard mke2fs won't work on images smaller than 60k
 	if (nblocks < 60)
-		bb_error_msg_and_die("need >= 60 blocks");
+		bb_simple_error_msg_and_die("need >= 60 blocks");
 
 	// How many reserved blocks?
 	if (reserved_percent > 50)

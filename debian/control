@@ -5,7 +5,9 @@ Maintainer: Debian Install System Team <debian-boot@lists.debian.org>
 Uploaders:
  Chris Boot <bootc@debian.org>,
  Christoph Biedl <debian.axhn@manchmal.in-ulm.de>,
-Build-Depends: debhelper (>= 11~), zip
+ Michael Tokarev <mjt@tls.msk.ru>,
+Build-Depends: debhelper-compat (= 13),
+ zip <!nocheck>
 Standards-Version: 4.1.5
 Vcs-Git: https://salsa.debian.org/installer-team/busybox.git
 Vcs-Browser: https://salsa.debian.org/installer-team/busybox
@@ -17,7 +19,6 @@ Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Conflicts: busybox-static
 Replaces: busybox-static
-Breaks: initramfs-tools (<<0.99)
 Description: Tiny utilities for small and embedded systems
  BusyBox combines tiny versions of many common UNIX utilities into a single
  small executable. It provides minimalist replacements for the most common
@@ -76,6 +77,7 @@ Description: Tiny utilities for the debian-installer
 
 Package: busybox-syslogd
 Architecture: all
+Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
  lsb-base,
@@ -104,6 +106,7 @@ Description: Provides syslogd and klogd using busybox
 Package: udhcpc
 Section: net
 Architecture: linux-any
+Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
  ${misc:Depends},
@@ -118,6 +121,7 @@ Description: Provides the busybox DHCP client implementation
 Package: udhcpd
 Section: net
 Architecture: linux-any
+Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
  lsb-base,

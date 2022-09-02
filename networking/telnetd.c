@@ -68,6 +68,12 @@
 //config:	help
 //config:	Selecting this will make telnetd able to run standalone.
 //config:
+//config:config FEATURE_TELNETD_PORT_DEFAULT
+//config:	int "Default port"
+//config:	default 23
+//config:	range 1 65535
+//config:	depends on FEATURE_TELNETD_STANDALONE
+//config:
 //config:config FEATURE_TELNETD_INETD_WAIT
 //config:	bool "Support -w SEC option (inetd wait mode)"
 //config:	default y
@@ -103,12 +109,13 @@
 //usage:     "\n	-K		Close connection as soon as login exits"
 //usage:     "\n			(normally wait until all programs close slave pty)"
 //usage:	IF_FEATURE_TELNETD_STANDALONE(
-//usage:     "\n	-p PORT		Port to listen on"
+//usage:     "\n	-p PORT		Port to listen on. Default "STR(CONFIG_FEATURE_TELNETD_PORT_DEFAULT)
 //usage:     "\n	-b ADDR[:PORT]	Address to bind to"
 //usage:     "\n	-F		Run in foreground"
 //usage:     "\n	-i		Inetd mode"
 //usage:	IF_FEATURE_TELNETD_INETD_WAIT(
 //usage:     "\n	-w SEC		Inetd 'wait' mode, linger time SEC"
+//usage:     "\n		inetd.conf line: 23 stream tcp wait root telnetd telnetd -w10"
 //usage:     "\n	-S		Log to syslog (implied by -i or without -F and -w)"
 //usage:	)
 //usage:	)
@@ -249,7 +256,7 @@ safe_write_to_pty_decode_iac(struct tsession *ts)
 	 * IAC SE  (240) End of subnegotiation. Treated as NOP.
 	 * IAC NOP (241) NOP. Supported.
 	 * IAC BRK (243) Break. Like serial line break. TODO via tcsendbreak()?
-	 * IAC AYT (246) Are you there. Send back evidence that AYT was seen. TODO (send NOP back)?
+	 * IAC AYT (246) Are you there.
 	 *  These don't look useful:
 	 * IAC DM  (242) Data mark. What is this?
 	 * IAC IP  (244) Suspend, interrupt or abort the process. (Ancient cousin of ^C).
@@ -274,6 +281,18 @@ safe_write_to_pty_decode_iac(struct tsession *ts)
 		if (rc <= 0)
 			return rc;
 #endif
+		rc = 2;
+		goto update_and_return;
+	}
+	if (buf[1] == AYT) {
+		if (ts->size2 == 0) { /* if nothing buffered yet... */
+			/* Send back evidence that AYT was seen */
+			unsigned char *buf2 = TS_BUF2(ts);
+			buf2[0] = IAC;
+			buf2[1] = NOP;
+			ts->wridx2 = 0;
+			ts->rdidx2 = ts->size2 = 2;
+		}
 		rc = 2;
 		goto update_and_return;
 	}
@@ -483,7 +502,7 @@ make_new_session(
 		free(ts);
 		close(fd);
 		/* sock will be closed by caller */
-		bb_perror_msg("vfork");
+		bb_simple_perror_msg("vfork");
 		return NULL;
 	}
 	if (pid > 0) {
@@ -695,7 +714,7 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
 	} else {
 		master_fd = 0;
 		if (!(opt & OPT_WAIT)) {
-			unsigned portnbr = 23;
+			unsigned portnbr = CONFIG_FEATURE_TELNETD_PORT_DEFAULT;
 			if (opt & OPT_PORT)
 				portnbr = xatou16(opt_portnbr);
 			master_fd = create_and_bind_stream_or_die(opt_bindaddr, portnbr);
@@ -865,11 +884,25 @@ int telnetd_main(int argc UNUSED_PARAM, char **argv)
  skip3:
 		if (/*ts->size2 < BUFSIZE &&*/ FD_ISSET(ts->ptyfd, &rdfdset)) {
 			/* Read from pty to buffer 2 */
+			int eio = 0;
+ read_pty:
 			count = MIN(BUFSIZE - ts->rdidx2, BUFSIZE - ts->size2);
 			count = safe_read(ts->ptyfd, TS_BUF2(ts) + ts->rdidx2, count);
 			if (count <= 0) {
-				if (count < 0 && errno == EAGAIN)
-					goto skip4;
+				if (count < 0) {
+					if (errno == EAGAIN)
+						goto skip4;
+					/* login process might call vhangup(),
+					 * which causes intermittent EIOs on read above
+					 * (observed on kernel 4.12.0). Try up to 10 ms.
+					 */
+					if (errno == EIO && eio < 10) {
+						eio++;
+						//bb_error_msg("EIO pty %u", eio);
+						usleep(1000);
+						goto read_pty;
+					}
+				}
 				goto kill_session;
 			}
 			ts->size2 += count;

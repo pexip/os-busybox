@@ -10,7 +10,6 @@
 //config:config RMMOD
 //config:	bool "rmmod (3.3 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	rmmod is used to unload specified modules from the kernel.
 
@@ -52,7 +51,7 @@ int rmmod_main(int argc UNUSED_PARAM, char **argv)
 		/* Unload _all_ unused modules via NULL delete_module() call */
 		err = bb_delete_module(NULL, flags);
 		if (err && err != EFAULT)
-			bb_perror_msg_and_die("rmmod");
+			bb_simple_perror_msg_and_die("rmmod");
 		return EXIT_SUCCESS;
 	}
 
