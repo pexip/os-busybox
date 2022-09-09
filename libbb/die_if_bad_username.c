@@ -8,6 +8,10 @@
  */
 #include "libbb.h"
 
+#ifndef LOGIN_NAME_MAX
+#define LOGIN_NAME_MAX 256
+#endif
+
 /* To avoid problems, the username should consist only of
  * letters, digits, underscores, periods, at signs and dashes,
  * and not start with a dash (as defined by IEEE Std 1003.1-2001).
@@ -57,5 +61,5 @@ void FAST_FUNC die_if_bad_username(const char *name)
 	 * including the terminating null byte.
 	 */
 	if (name - start >= LOGIN_NAME_MAX)
-		bb_error_msg_and_die("name is too long");
+		bb_simple_error_msg_and_die("name is too long");
 }

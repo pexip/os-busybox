@@ -3,7 +3,7 @@ Date: Fri, 29 Mar 2019 17:42:23 +0100
 Subject: Revert 9c143ce52da11ec3d21a3491c3749841d3dc10f0 just to make sure the next patch can be applied
 --- a/shell/ash.c
 +++ b/shell/ash.c
-@@ -11149,17 +11149,9 @@ showvars(const char *sep_prefix, int on,
+@@ -11477,17 +11477,9 @@
  		const char *p;
  		const char *q;
  
@@ -23,7 +23,7 @@ Subject: Revert 9c143ce52da11ec3d21a3491c3749841d3dc10f0 just to make sure the n
  			q = single_quote(++p);
  		out1fmt("%s%s%.*s%s\n", sep_prefix, sep, (int)(p - *ep), *ep, q);
  	}
-@@ -13965,18 +13957,8 @@ init(void)
+@@ -14409,18 +14401,8 @@
  
  		initvar();
  		for (envp = environ; envp && *envp; envp++) {

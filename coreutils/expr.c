@@ -45,7 +45,7 @@
 //usage:#define expr_trivial_usage
 //usage:       "EXPRESSION"
 //usage:#define expr_full_usage "\n\n"
-//usage:       "Print the value of EXPRESSION to stdout\n"
+//usage:       "Print the value of EXPRESSION\n"
 //usage:    "\n"
 //usage:       "EXPRESSION may be:\n"
 //usage:       "	ARG1 | ARG2	ARG1 if it is neither null nor 0, otherwise ARG2\n"
@@ -63,7 +63,7 @@
 //usage:       "	ARG1 % ARG2\n"
 //usage:       "	STRING : REGEXP		Anchored pattern match of REGEXP in STRING\n"
 //usage:       "	match STRING REGEXP	Same as STRING : REGEXP\n"
-//usage:       "	substr STRING POS LENGTH Substring of STRING, POS counted from 1\n"
+//usage:       "	substr STRING POS LEN	Substring of STRING, POS counts from 1\n"
 //usage:       "	index STRING CHARS	Index in STRING where any CHARS is found, or 0\n"
 //usage:       "	length STRING		Length of STRING\n"
 //usage:       "	quote TOKEN		Interpret TOKEN as a string, even if\n"
@@ -249,7 +249,7 @@ static arith_t arithmetic_common(VALUE *l, VALUE *r, int op)
 	arith_t li, ri;
 
 	if (!toarith(l) || !toarith(r))
-		bb_error_msg_and_die("non-numeric argument");
+		bb_simple_error_msg_and_die("non-numeric argument");
 	li = l->u.i;
 	ri = r->u.i;
 	if (op == '+')
@@ -259,7 +259,7 @@ static arith_t arithmetic_common(VALUE *l, VALUE *r, int op)
 	if (op == '*')
 		return li * ri;
 	if (ri == 0)
-		bb_error_msg_and_die("division by zero");
+		bb_simple_error_msg_and_die("division by zero");
 	if (op == '/')
 		return li / ri;
 	return li % ri;
@@ -319,19 +319,19 @@ static VALUE *eval7(void)
 	VALUE *v;
 
 	if (!*G.args)
-		bb_error_msg_and_die("syntax error");
+		bb_simple_error_msg_and_die("syntax error");
 
 	if (nextarg("(")) {
 		G.args++;
 		v = eval();
 		if (!nextarg(")"))
-			bb_error_msg_and_die("syntax error");
+			bb_simple_error_msg_and_die("syntax error");
 		G.args++;
 		return v;
 	}
 
 	if (nextarg(")"))
-		bb_error_msg_and_die("syntax error");
+		bb_simple_error_msg_and_die("syntax error");
 
 	return str_value(*G.args++);
 }
@@ -353,7 +353,7 @@ static VALUE *eval6(void)
 	G.args++; /* We have a valid token, so get the next argument.  */
 	if (key == 1) { /* quote */
 		if (!*G.args)
-			bb_error_msg_and_die("syntax error");
+			bb_simple_error_msg_and_die("syntax error");
 		return str_value(*G.args++);
 	}
 	if (key == 2) { /* length */
@@ -546,11 +546,11 @@ int expr_main(int argc UNUSED_PARAM, char **argv)
 	xfunc_error_retval = 2; /* coreutils compat */
 	G.args = argv + 1;
 	if (*G.args == NULL) {
-		bb_error_msg_and_die("too few arguments");
+		bb_simple_error_msg_and_die("too few arguments");
 	}
 	v = eval();
 	if (*G.args)
-		bb_error_msg_and_die("syntax error");
+		bb_simple_error_msg_and_die("syntax error");
 	if (v->type == INTEGER)
 		printf("%" PF_REZ "d\n", PF_REZ_TYPE v->u.i);
 	else

@@ -34,7 +34,6 @@
 //config:config READPROFILE
 //config:	bool "readprofile (7.1 kb)"
 //config:	default y
-//config:	#select PLATFORM_LINUX
 //config:	help
 //config:	This allows you to parse /proc/profile for basic profiling.
 
@@ -45,8 +44,8 @@
 //usage:#define readprofile_trivial_usage
 //usage:       "[OPTIONS]"
 //usage:#define readprofile_full_usage "\n\n"
-//usage:       "	-m mapfile	(Default: /boot/System.map)"
-//usage:     "\n	-p profile	(Default: /proc/profile)"
+//usage:       "	-m MAPFILE	(Default: /boot/System.map)"
+//usage:     "\n	-p PROFILE	(Default: /proc/profile)"
 //usage:     "\n	-M NUM		Set the profiling multiplier to NUM"
 //usage:     "\n	-i		Print only info about the sampling step"
 //usage:     "\n	-v		Verbose"
@@ -142,7 +141,7 @@ int readprofile_main(int argc UNUSED_PARAM, char **argv)
 				small++;
 		}
 		if (big > small) {
-			bb_error_msg("assuming reversed byte order, "
+			bb_simple_error_msg("assuming reversed byte order, "
 				"use -n to force native byte order");
 			BUILD_BUG_ON(sizeof(*p) > 8);
 			for (p = buf; p < buf+len; p++) {
@@ -204,7 +203,7 @@ int readprofile_main(int argc UNUSED_PARAM, char **argv)
 		}
 
 		if (indx >= len)
-			bb_error_msg_and_die("profile address out of range. "
+			bb_simple_error_msg_and_die("profile address out of range. "
 					"Wrong map file?");
 
 		this = 0;

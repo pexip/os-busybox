@@ -27,7 +27,6 @@
 //config:config PING
 //config:	bool "ping (10 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	ping uses the ICMP protocol's mandatory ECHO_REQUEST datagram to
 //config:	elicit an ICMP ECHO_RESPONSE from a host or gateway.
@@ -59,16 +58,16 @@
 //usage:# define ping_trivial_usage
 //usage:       "HOST"
 //usage:# define ping_full_usage "\n\n"
-//usage:       "Send ICMP ECHO_REQUEST packets to network hosts"
+//usage:       "Send ICMP ECHO_REQUESTs to HOST"
 //usage:# define ping6_trivial_usage
 //usage:       "HOST"
 //usage:# define ping6_full_usage "\n\n"
-//usage:       "Send ICMP ECHO_REQUEST packets to network hosts"
+//usage:       "Send ICMP ECHO_REQUESTs to HOST"
 //usage:#else
 //usage:# define ping_trivial_usage
 //usage:       "[OPTIONS] HOST"
 //usage:# define ping_full_usage "\n\n"
-//usage:       "Send ICMP ECHO_REQUEST packets to network hosts\n"
+//usage:       "Send ICMP ECHO_REQUESTs to HOST\n"
 //usage:	IF_PING6(
 //usage:     "\n	-4,-6		Force IP or IPv6 name resolution"
 //usage:	)
@@ -82,22 +81,26 @@
 //usage:     "\n			(after all -c CNT packets are sent)"
 //usage:     "\n	-w SEC		Seconds until ping exits (default:infinite)"
 //usage:     "\n			(can exit earlier with -c CNT)"
-//usage:     "\n	-q		Quiet, only display output at start"
-//usage:     "\n			and when finished"
-//usage:     "\n	-p HEXBYTE	Pattern to use for payload"
+//usage:     "\n	-q		Quiet, only display output at start/finish"
+//usage:     "\n	-p HEXBYTE	Payload pattern"
 //usage:
 //usage:# define ping6_trivial_usage
 //usage:       "[OPTIONS] HOST"
 //usage:# define ping6_full_usage "\n\n"
-//usage:       "Send ICMP ECHO_REQUEST packets to network hosts\n"
+//usage:       "Send ICMP ECHO_REQUESTs to HOST\n"
 //usage:     "\n	-c CNT		Send only CNT pings"
 //usage:     "\n	-s SIZE		Send SIZE data bytes in packets (default 56)"
 //usage:     "\n	-i SECS		Interval"
 //usage:     "\n	-A		Ping as soon as reply is recevied"
+///////:     "\n	-t TTL		Set TTL"
+///////^^^^^ -t not tested for IPv6, might be not working
 //usage:     "\n	-I IFACE/IP	Source interface or IP address"
-//usage:     "\n	-q		Quiet, only display output at start"
-//usage:     "\n			and when finished"
-//usage:     "\n	-p HEXBYTE	Pattern to use for payload"
+//usage:     "\n	-W SEC		Seconds to wait for the first response (default 10)"
+//usage:     "\n			(after all -c CNT packets are sent)"
+//usage:     "\n	-w SEC		Seconds until ping exits (default:infinite)"
+//usage:     "\n			(can exit earlier with -c CNT)"
+//usage:     "\n	-q		Quiet, only display output at start/finish"
+//usage:     "\n	-p HEXBYTE	Payload pattern"
 //usage:
 //usage:#endif
 //usage:
@@ -119,6 +122,10 @@
 //usage:       "round-trip min/avg/max = 20.1/20.1/20.1 ms\n"
 
 #include <net/if.h>
+#if defined(__FreeBSD__)
+# include <netinet/in.h> /* struct ip and friends */
+# include <netinet/ip.h>
+#endif
 #include <netinet/ip_icmp.h>
 #include "libbb.h"
 #include "common_bufsiz.h"
@@ -157,6 +164,40 @@
 # endif
 #endif
 
+#if defined(__FreeBSD__)
+/**
+ * On BSD the IPv4 struct is called struct ip and instead of iXX
+ * the members are called ip_XX. One could change this code to use
+ * struct ip but that would require to define _BSD_SOURCE and that
+ * might have other complications. Instead make sure struct iphdr
+ * is present on FreeBSD. The below is taken from GLIBC.
+ *
+ * The GNU C Library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ */
+struct iphdr {
+# if BYTE_ORDER == LITTLE_ENDIAN
+	unsigned int ihl:4;
+	unsigned int version:4;
+# elif BYTE_ORDER == BIG_ENDIAN
+	unsigned int version:4;
+	unsigned int ihl:4;
+# endif
+	uint8_t  tos;
+	uint16_t tot_len;
+	uint16_t id;
+	uint16_t frag_off;
+	uint8_t  ttl;
+	uint8_t  protocol;
+	uint16_t check;
+	uint32_t saddr;
+	uint32_t daddr;
+	/*The options start here. */
+};
+#endif
+
 enum {
 	DEFDATALEN = 56,
 	MAXIPLEN = 60,
@@ -184,8 +225,8 @@ create_icmp_socket(void)
 		sock = socket(AF_INET, SOCK_RAW, 1); /* 1 == ICMP */
 	if (sock < 0) {
 		if (errno == EPERM)
-			bb_error_msg_and_die(bb_msg_perm_denied_are_you_root);
-		bb_perror_msg_and_die(bb_msg_can_not_create_raw_socket);
+			bb_simple_error_msg_and_die(bb_msg_perm_denied_are_you_root);
+		bb_simple_perror_msg_and_die(bb_msg_can_not_create_raw_socket);
 	}
 
 	xmove_fd(sock, pingsock);
@@ -218,7 +259,7 @@ static void ping4(len_and_sockaddr *lsa)
 	/*memset(pkt, 0, sizeof(G.packet)); already is */
 	pkt->icmp_type = ICMP_ECHO;
 	pkt->icmp_id = G.myid;
-	pkt->icmp_cksum = inet_cksum((uint16_t *) pkt, sizeof(G.packet));
+	pkt->icmp_cksum = inet_cksum(pkt, sizeof(G.packet));
 
 	xsendto(pingsock, G.packet, DEFDATALEN + ICMP_MINLEN, &lsa->u.sa, lsa->len);
 
@@ -235,7 +276,7 @@ static void ping4(len_and_sockaddr *lsa)
 #endif
 		if (c < 0) {
 			if (errno != EINTR)
-				bb_perror_msg("recvfrom");
+				bb_simple_perror_msg("recvfrom");
 			continue;
 		}
 		if (c >= 76) {			/* ip + icmp */
@@ -280,7 +321,7 @@ static void ping6(len_and_sockaddr *lsa)
 #endif
 		if (c < 0) {
 			if (errno != EINTR)
-				bb_perror_msg("recvfrom");
+				bb_simple_perror_msg("recvfrom");
 			continue;
 		}
 		if (c >= ICMP_MINLEN) {	/* icmp6_hdr */
@@ -333,6 +374,11 @@ static int common_ping_main(sa_family_t af, char **argv)
 
 	create_icmp_socket(lsa);
 	G.myid = (uint16_t) getpid();
+	/* we can use native-endian ident, but other Unix ping/traceroute
+	 * utils use *big-endian pid*, and e.g. traceroute on our machine may be
+	 * *not* from busybox, idents may collide. Follow the convention:
+	 */
+	G.myid = htons(G.myid);
 #if ENABLE_PING6
 	if (lsa->u.sa.sa_family == AF_INET6)
 		ping6(lsa);
@@ -467,22 +513,21 @@ static void sendping_tail(void (*sp)(int), int size_pkt)
 {
 	int sz;
 
-	CLR((uint16_t)G.ntransmitted % MAX_DUP_CHK);
-	G.ntransmitted++;
-
-	size_pkt += datalen;
-
 	if (G.deadline_us) {
 		unsigned n = G.cur_us - G.deadline_us;
 		if ((int)n >= 0)
 			print_stats_and_exit(0);
 	}
 
+	CLR((uint16_t)G.ntransmitted % MAX_DUP_CHK);
+	G.ntransmitted++;
+	size_pkt += datalen;
+
 	/* sizeof(pingaddr) can be larger than real sa size, but I think
 	 * it doesn't matter */
 	sz = xsendto(pingsock, G.snd_packet, size_pkt, &pingaddr.sa, sizeof(pingaddr));
 	if (sz != size_pkt)
-		bb_error_msg_and_die(bb_msg_write_error);
+		bb_simple_error_msg_and_die(bb_msg_write_error);
 
 	if (pingcount == 0 || G.ntransmitted < pingcount) {
 		/* Didn't send all pings yet - schedule next in -i SEC interval */
@@ -530,7 +575,7 @@ static void sendping4(int junk UNUSED_PARAM)
 		/* No hton: we'll read it back on the same machine */
 		*(uint32_t*)&pkt->icmp_dun = G.cur_us = monotonic_us();
 
-	pkt->icmp_cksum = inet_cksum((uint16_t *) pkt, datalen + ICMP_MINLEN);
+	pkt->icmp_cksum = inet_cksum(pkt, datalen + ICMP_MINLEN);
 
 	sendping_tail(sendping4, ICMP_MINLEN);
 }
@@ -723,7 +768,7 @@ static void ping4(len_and_sockaddr *lsa)
 	if (source_lsa) {
 		if (setsockopt(pingsock, IPPROTO_IP, IP_MULTICAST_IF,
 				&source_lsa->u.sa, source_lsa->len))
-			bb_error_msg_and_die("can't set multicast source interface");
+			bb_simple_error_msg_and_die("can't set multicast source interface");
 		xbind(pingsock, &source_lsa->u.sa, source_lsa->len);
 	}
 
@@ -757,7 +802,7 @@ static void ping4(len_and_sockaddr *lsa)
 				(struct sockaddr *) &from, &fromlen);
 		if (c < 0) {
 			if (errno != EINTR)
-				bb_perror_msg("recvfrom");
+				bb_simple_perror_msg("recvfrom");
 			continue;
 		}
 		c = unpack4(G.rcv_packet, c, &from);
@@ -838,7 +883,7 @@ static void ping6(len_and_sockaddr *lsa)
 		c = recvmsg(pingsock, &msg, 0);
 		if (c < 0) {
 			if (errno != EINTR)
-				bb_perror_msg("recvfrom");
+				bb_simple_perror_msg("recvfrom");
 			continue;
 		}
 		for (mp = CMSG_FIRSTHDR(&msg); mp; mp = CMSG_NXTHDR(&msg, mp)) {
@@ -928,6 +973,11 @@ static int common_ping_main(int opt, char **argv)
 	G.interval_us = interval * 1000000;
 
 	myid = (uint16_t) getpid();
+	/* we can use native-endian ident, but other Unix ping/traceroute
+	 * utils use *big-endian pid*, and e.g. traceroute on our machine may be
+	 * *not* from busybox, idents may collide. Follow the convention:
+	 */
+	myid = htons(myid);
 	hostname = argv[optind];
 #if ENABLE_PING6
 	{

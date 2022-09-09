@@ -14,7 +14,6 @@
 //config:config HDPARM
 //config:	bool "hdparm (25 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Get/Set hard drive parameters. Primarily intended for ATA
 //config:	drives.
@@ -810,7 +809,7 @@ static void identify(uint16_t *val)
 		like_std = 3;
 	} else
 		/* "Unknown device type:\n\tbits 15&14 of general configuration word 0 both set to 1.\n" */
-		bb_error_msg_and_die("unknown device type");
+		bb_simple_error_msg_and_die("unknown device type");
 
 	printf("%sremovable media\n", !(val[GEN_CONFIG] & MEDIA_REMOVABLE) ? "non-" : "");
 	/* Info from the specific configuration word says whether or not the
@@ -996,7 +995,7 @@ static void identify(uint16_t *val)
 					/* check Endian of capacity bytes */
 					nn = val[LCYLS_CUR] * val[LHEADS_CUR] * val[LSECTS_CUR];
 					oo = (uint32_t)val[CAPACITY_LSB] << 16 | val[CAPACITY_MSB];
-					if (abs(mm - nn) > abs(oo - nn))
+					if (abs((int)(mm - nn)) > abs((int)(oo - nn)))
 						mm = oo;
 				}
 				printf("\tCHS current addressable sectors:%11u\n", mm);
@@ -1367,7 +1366,7 @@ static NOINLINE void dump_identity(const struct hd_driveid *id)
 	}
 	if (id->capability & 1) {
 		if (id->dma_1word | id->dma_mword) {
-			static const int dma_wmode_masks[] = { 0x100, 1, 0x200, 2, 0x400, 4, 0xf800, 0xf8 };
+			static const int dma_wmode_masks[] ALIGN4 = { 0x100, 1, 0x200, 2, 0x400, 4, 0xf800, 0xf8 };
 			printf("\n DMA modes:  ");
 			print_flags_separated(dma_wmode_masks,
 				"*\0""sdma0 \0""*\0""sdma1 \0""*\0""sdma2 \0""*\0""sdma? \0",
@@ -1437,10 +1436,10 @@ static void flush_buffer_cache(/*int fd*/ void)
 	fsync(fd);				/* flush buffers */
 	ioctl_or_warn(fd, BLKFLSBUF, NULL); /* do it again, big time */
 #ifdef HDIO_DRIVE_CMD
-	sleep(1);
+	sleep1();
 	if (ioctl(fd, HDIO_DRIVE_CMD, NULL) && errno != EINVAL) {	/* await completion */
 		if (ENABLE_IOCTL_HEX2STR_ERROR) /* To be coherent with ioctl_or_warn */
-			bb_perror_msg("HDIO_DRIVE_CMD");
+			bb_simple_perror_msg("HDIO_DRIVE_CMD");
 		else
 			bb_perror_msg("ioctl %#x failed", HDIO_DRIVE_CMD);
 	}
@@ -1506,13 +1505,13 @@ static void do_time(int cache /*,int fd*/)
 	char *buf = xmalloc(TIMING_BUF_BYTES);
 
 	if (mlock(buf, TIMING_BUF_BYTES))
-		bb_perror_msg_and_die("mlock");
+		bb_simple_perror_msg_and_die("mlock");
 
 	/* Clear out the device request queues & give them time to complete.
 	 * NB: *small* delay. User is expected to have a clue and to not run
 	 * heavy io in parallel with measurements. */
 	sync();
-	sleep(1);
+	sleep1();
 	if (cache) { /* Time cache */
 		seek_to_zero();
 		read_big_block(buf);
@@ -1857,7 +1856,7 @@ static void process_dev(char *devname)
 		char buf[512];
 		flush_buffer_cache();
 		if (-1 == read(fd, buf, sizeof(buf)))
-			bb_perror_msg("read of 512 bytes failed");
+			bb_simple_perror_msg("read of 512 bytes failed");
 	}
 #endif  /* HDIO_DRIVE_CMD */
 	if (getset_mult || get_identity) {
@@ -1865,7 +1864,7 @@ static void process_dev(char *devname)
 		if (ioctl(fd, HDIO_GET_MULTCOUNT, &multcount)) {
 			/* To be coherent with ioctl_or_warn. */
 			if (getset_mult && ENABLE_IOCTL_HEX2STR_ERROR)
-				bb_perror_msg("HDIO_GET_MULTCOUNT");
+				bb_simple_perror_msg("HDIO_GET_MULTCOUNT");
 			else
 				bb_perror_msg("ioctl %#x failed", HDIO_GET_MULTCOUNT);
 		} else if (getset_mult) {
@@ -1985,7 +1984,7 @@ static void process_dev(char *devname)
 		} else if (errno == -ENOMSG)
 			puts(" no identification info available");
 		else if (ENABLE_IOCTL_HEX2STR_ERROR)  /* To be coherent with ioctl_or_warn */
-			bb_perror_msg("HDIO_GET_IDENTITY");
+			bb_simple_perror_msg("HDIO_GET_IDENTITY");
 		else
 			bb_perror_msg("ioctl %#x failed", HDIO_GET_IDENTITY);
 	}

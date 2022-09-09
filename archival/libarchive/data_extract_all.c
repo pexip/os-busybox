@@ -103,7 +103,7 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 		struct stat existing_sb;
 		if (lstat(dst_name, &existing_sb) == -1) {
 			if (errno != ENOENT) {
-				bb_perror_msg_and_die("can't stat old file");
+				bb_simple_perror_msg_and_die("can't stat old file");
 			}
 		}
 		else if (existing_sb.st_mtime >= file_header->mtime) {
@@ -159,6 +159,10 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 		break;
 	}
 	case S_IFDIR:
+//TODO: this causes problems if tarball contains a r-xr-xr-x directory:
+// we create this directory, and then fail to create files inside it
+// (if tar xf isn't run as root).
+// GNU tar works around this by chmod-ing directories *after* all files are extracted.
 		res = mkdir(dst_name, file_header->mode);
 		if ((res != 0)
 		 && (errno != EISDIR) /* btw, Linux doesn't return this */
@@ -207,7 +211,7 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
 		}
 		break;
 	default:
-		bb_error_msg_and_die("unrecognized file type");
+		bb_simple_error_msg_and_die("unrecognized file type");
 	}
 
 	if (!S_ISLNK(file_header->mode)) {

@@ -44,7 +44,7 @@ static void strip(char *str)
 	char *p = str;
 	int l;
 
-	while ((isspace(*p)))
+	while ((isspace((unsigned char)*p)))
 		p++;
 	l = strlen(p);
 	if (p != str)
@@ -52,7 +52,7 @@ static void strip(char *str)
 	if (!l)
 		return;
 	p = str + l - 1;
-	while ((isspace(*p)))
+	while ((isspace((unsigned char)*p)))
 		*p-- = 0;
 }
 
@@ -142,7 +142,8 @@ static void conf_askvalue(struct symbol *sym, const char *def)
 		check_stdin();
 	case ask_all:
 		fflush(stdout);
-		fgets(line, 128, stdin);
+		if (!fgets(line, 128, stdin))
+			exit(1);
 		return;
 	case set_default:
 		printf("%s\n", def);
@@ -390,7 +391,8 @@ static int conf_choice(struct menu *menu)
 			check_stdin();
 		case ask_all:
 			fflush(stdout);
-			fgets(line, 128, stdin);
+			if (!fgets(line, 128, stdin))
+				exit(1);
 			strip(line);
 			if (line[0] == '?') {
 				printf("\n%s\n", menu->sym->help ?
@@ -399,7 +401,7 @@ static int conf_choice(struct menu *menu)
 			}
 			if (!line[0])
 				cnt = def;
-			else if (isdigit(line[0]))
+			else if (isdigit((unsigned char)line[0]))
 				cnt = atoi(line);
 			else
 				continue;

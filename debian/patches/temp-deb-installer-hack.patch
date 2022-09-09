@@ -16,7 +16,7 @@ release any longer than it has already.
 
 --- a/shell/Config.src
 +++ b/shell/Config.src
-@@ -175,6 +175,13 @@ config FEATURE_SH_EMBEDDED_SCRIPTS
+@@ -184,6 +184,13 @@
  	the script in 'applets_sh' and a stub C file containing
  	configuration in the appropriate subsystem directory.
  
@@ -32,7 +32,7 @@ release any longer than it has already.
  endmenu
 --- a/shell/ash.c
 +++ b/shell/ash.c
-@@ -13957,8 +13957,13 @@ init(void)
+@@ -14401,8 +14401,13 @@
  
  		initvar();
  		for (envp = environ; envp && *envp; envp++) {

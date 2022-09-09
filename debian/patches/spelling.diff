@@ -1,0 +1,37 @@
+From: Michael Tokarev <mjt@tls.msk.ru>
+Date: Sun, 08 May 2022 21:38:38 +0300
+Subject: Spelling: recevied, delimeter
+
+--- a/coreutils/cut.c
++++ b/coreutils/cut.c
+@@ -33,8 +33,8 @@
+ //usage:     "\n	-b LIST	Output only bytes from LIST"
+ //usage:     "\n	-c LIST	Output only characters from LIST"
+ //usage:     "\n	-d SEP	Field delimiter for input (default -f TAB, -F run of whitespace)"
+-//usage:     "\n	-O SEP	Field delimeter for output (default = -d for -f, one space for -F)"
+-//usage:     "\n	-D	Don't sort/collate sections or match -fF lines without delimeter"
++//usage:     "\n	-O SEP	Field delimiter for output (default = -d for -f, one space for -F)"
++//usage:     "\n	-D	Don't sort/collate sections or match -fF lines without delimiter"
+ //usage:     "\n	-f LIST	Print only these fields (-d is single char)"
+ //usage:     IF_FEATURE_CUT_REGEX(
+ //usage:     "\n	-F LIST	Print only these fields (-d is regex)"
+--- a/networking/ping.c
++++ b/networking/ping.c
+@@ -74,7 +74,7 @@
+ //usage:     "\n	-c CNT		Send only CNT pings"
+ //usage:     "\n	-s SIZE		Send SIZE data bytes in packets (default 56)"
+ //usage:     "\n	-i SECS		Interval"
+-//usage:     "\n	-A		Ping as soon as reply is recevied"
++//usage:     "\n	-A		Ping as soon as reply is received"
+ //usage:     "\n	-t TTL		Set TTL"
+ //usage:     "\n	-I IFACE/IP	Source interface or IP address"
+ //usage:     "\n	-W SEC		Seconds to wait for the first response (default 10)"
+@@ -91,7 +91,7 @@
+ //usage:     "\n	-c CNT		Send only CNT pings"
+ //usage:     "\n	-s SIZE		Send SIZE data bytes in packets (default 56)"
+ //usage:     "\n	-i SECS		Interval"
+-//usage:     "\n	-A		Ping as soon as reply is recevied"
++//usage:     "\n	-A		Ping as soon as reply is received"
+ ///////:     "\n	-t TTL		Set TTL"
+ ///////^^^^^ -t not tested for IPv6, might be not working
+ //usage:     "\n	-I IFACE/IP	Source interface or IP address"

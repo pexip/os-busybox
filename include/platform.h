@@ -30,6 +30,10 @@
 # endif
 #endif
 
+#if !__GNUC_PREREQ(5,0)
+# define deprecated(msg) deprecated
+#endif
+
 #undef inline
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ > 199901L
 /* it's a keyword */
@@ -191,6 +195,7 @@
 #endif
 
 #if ULONG_MAX > 0xffffffff
+/* inline 64-bit bswap only on 64-bit arches */
 # define bb_bswap_64(x) bswap_64(x)
 #endif
 
@@ -234,6 +239,7 @@ typedef uint64_t bb__aliased_uint64_t FIX_ALIASING;
 # define move_from_unaligned_long(v, longp) ((v) = *(bb__aliased_long*)(longp))
 # define move_from_unaligned16(v, u16p) ((v) = *(bb__aliased_uint16_t*)(u16p))
 # define move_from_unaligned32(v, u32p) ((v) = *(bb__aliased_uint32_t*)(u32p))
+# define move_from_unaligned64(v, u64p) ((v) = *(bb__aliased_uint64_t*)(u64p))
 # define move_to_unaligned16(u16p, v)   (*(bb__aliased_uint16_t*)(u16p) = (v))
 # define move_to_unaligned32(u32p, v)   (*(bb__aliased_uint32_t*)(u32p) = (v))
 # define move_to_unaligned64(u64p, v)   (*(bb__aliased_uint64_t*)(u64p) = (v))
@@ -245,6 +251,7 @@ typedef uint64_t bb__aliased_uint64_t FIX_ALIASING;
 # define move_from_unaligned_long(v, longp) (memcpy(&(v), (longp), sizeof(long)))
 # define move_from_unaligned16(v, u16p) (memcpy(&(v), (u16p), 2))
 # define move_from_unaligned32(v, u32p) (memcpy(&(v), (u32p), 4))
+# define move_from_unaligned64(v, u64p) (memcpy(&(v), (u64p), 8))
 # define move_to_unaligned16(u16p, v) do { \
 	uint16_t __t = (v); \
 	memcpy((u16p), &__t, 2); \
@@ -315,7 +322,7 @@ typedef unsigned smalluint;
 #endif
 
 /* Define bb_setpgrp */
-#if defined(__digital__) && defined(__unix__)
+#if (defined(__digital__) && defined(__unix__)) || defined(__FreeBSD__)
 /* use legacy setpgrp(pid_t, pid_t) for now.  move to platform.c */
 # define bb_setpgrp() do { pid_t __me = getpid(); setpgrp(__me, __me); } while (0)
 #else
@@ -338,6 +345,8 @@ typedef unsigned smalluint;
 # define ALIGN2
 # define ALIGN4
 #endif
+#define ALIGN8     __attribute__((aligned(8)))
+#define ALIGN_PTR  __attribute__((aligned(sizeof(void*))))
 
 /*
  * For 0.9.29 and svn, __ARCH_USE_MMU__ indicates no-mmu reliably.
@@ -401,6 +410,7 @@ typedef unsigned smalluint;
 #define HAVE_SETBIT 1
 #define HAVE_SIGHANDLER_T 1
 #define HAVE_STPCPY 1
+#define HAVE_STPNCPY 1
 #define HAVE_MEMPCPY 1
 #define HAVE_STRCASESTR 1
 #define HAVE_STRCHRNUL 1
@@ -417,6 +427,9 @@ typedef unsigned smalluint;
 #define HAVE_NET_ETHERNET_H 1
 #define HAVE_SYS_STATFS_H 1
 #define HAVE_PRINTF_PERCENTM 1
+#define HAVE_WAIT3 1
+#define HAVE_DEV_FD 1
+#define DEV_FD_PREFIX "/dev/fd/"
 
 #if defined(__UCLIBC__)
 # if UCLIBC_VERSION < KERNEL_VERSION(0, 9, 32)
@@ -436,6 +449,7 @@ typedef unsigned smalluint;
 # undef HAVE_MKDTEMP
 # undef HAVE_SETBIT
 # undef HAVE_STPCPY
+# undef HAVE_STPNCPY
 # undef HAVE_STRCASESTR
 # undef HAVE_STRCHRNUL
 # undef HAVE_STRSEP
@@ -508,6 +522,7 @@ typedef unsigned smalluint;
 
 #if defined(__digital__) && defined(__unix__)
 # undef HAVE_STPCPY
+# undef HAVE_STPNCPY
 #endif
 
 #if defined(ANDROID) || defined(__ANDROID__)
@@ -524,6 +539,10 @@ typedef unsigned smalluint;
 #  undef HAVE_TTYNAME_R
 #  undef HAVE_GETLINE
 #  undef HAVE_STPCPY
+#  undef HAVE_STPNCPY
+# endif
+# if __ANDROID_API__ >= 21
+#  undef HAVE_WAIT3
 # endif
 # undef HAVE_MEMPCPY
 # undef HAVE_STRCHRNUL
@@ -566,6 +585,10 @@ typedef void (*sighandler_t)(int);
 
 #ifndef HAVE_STPCPY
 extern char *stpcpy(char *p, const char *to_add) FAST_FUNC;
+#endif
+
+#ifndef HAVE_STPNCPY
+extern char *stpncpy(char *p, const char *to_add, size_t n) FAST_FUNC;
 #endif
 
 #ifndef HAVE_MEMPCPY

@@ -113,30 +113,30 @@
 //kbuild:lib-$(CONFIG_IFDOWN) += ifupdown.o
 
 //usage:#define ifup_trivial_usage
-//usage:       "[-an"IF_FEATURE_IFUPDOWN_MAPPING("m")"vf] [-i FILE] IFACE..."
+//usage:       "[-n"IF_FEATURE_IFUPDOWN_MAPPING("m")"vf] [-i FILE] -a | IFACE..."
 //usage:#define ifup_full_usage "\n\n"
 //usage:       "	-a	Configure all interfaces"
 //usage:     "\n	-i FILE	Use FILE instead of /etc/network/interfaces"
-//usage:     "\n	-n	Print out what would happen, but don't do it"
+//usage:     "\n	-n	Dry run"
 //usage:	IF_FEATURE_IFUPDOWN_MAPPING(
 //usage:     "\n		(note: doesn't disable mappings)"
 //usage:     "\n	-m	Don't run any mappings"
 //usage:	)
 //usage:     "\n	-v	Print out what would happen before doing it"
-//usage:     "\n	-f	Force configuration"
+//usage:     "\n	-f	Force"
 //usage:
 //usage:#define ifdown_trivial_usage
-//usage:       "[-an"IF_FEATURE_IFUPDOWN_MAPPING("m")"vf] [-i FILE] IFACE..."
+//usage:       "[-n"IF_FEATURE_IFUPDOWN_MAPPING("m")"vf] [-i FILE] -a | IFACE..."
 //usage:#define ifdown_full_usage "\n\n"
 //usage:       "	-a	Deconfigure all interfaces"
-//usage:     "\n	-i FILE	Use FILE for interface definitions"
-//usage:     "\n	-n	Print out what would happen, but don't do it"
+//usage:     "\n	-i FILE	Use FILE instead of /etc/network/interfaces"
+//usage:     "\n	-n	Dry run"
 //usage:	IF_FEATURE_IFUPDOWN_MAPPING(
 //usage:     "\n		(note: doesn't disable mappings)"
 //usage:     "\n	-m	Don't run any mappings"
 //usage:	)
 //usage:     "\n	-v	Print out what would happen before doing it"
-//usage:     "\n	-f	Force deconfiguration"
+//usage:     "\n	-f	Force"
 
 #include <net/if.h>
 #include "libbb.h"
@@ -665,7 +665,7 @@ static int FAST_FUNC dhcp_up(struct interface_defn_t *ifd, execfn *exec)
 		if (executable_exists(ext_dhcp_clients[i].name))
 			return execute(ext_dhcp_clients[i].startcmd, ifd, exec);
 	}
-	bb_error_msg("no dhcp clients found");
+	bb_simple_error_msg("no dhcp clients found");
 	return 0;
 }
 # elif ENABLE_UDHCPC
@@ -707,7 +707,7 @@ static int FAST_FUNC dhcp_down(struct interface_defn_t *ifd, execfn *exec)
 	}
 
 	if (!result)
-		bb_error_msg("warning: no dhcp clients found and stopped");
+		bb_simple_error_msg("warning: no dhcp clients found and stopped");
 
 	/* Sleep a bit, otherwise static_down tries to bring down interface too soon,
 	   and it may come back up because udhcpc is still shutting down */
@@ -1177,8 +1177,15 @@ static int doit(char *str)
 
 static int execute_all(struct interface_defn_t *ifd, const char *opt)
 {
+	/* 'opt' is always short, the longest value is "post-down".
+	 * Can use on-stack buffer instead of xasprintf'ed one.
+	 */
+	char buf[sizeof("run-parts /etc/network/if-%s.d")
+		+ sizeof("post-down")
+		/*paranoia:*/ + 8
+	];
 	int i;
-	char *buf;
+
 	for (i = 0; i < ifd->n_options; i++) {
 		if (strcmp(ifd->option[i].name, opt) == 0) {
 			if (!doit(ifd->option[i].value)) {
@@ -1192,8 +1199,7 @@ static int execute_all(struct interface_defn_t *ifd, const char *opt)
 	 * complains, and this message _is_ annoyingly visible.
 	 * Don't "fix" this (unless newer Debian does).
 	 */
-	buf = xasprintf("run-parts /etc/network/if-%s.d", opt);
-	/* heh, we don't bother free'ing it */
+	sprintf(buf, "run-parts /etc/network/if-%s.d", opt);
 	return doit(buf);
 }
 
@@ -1351,15 +1357,15 @@ static FILE *open_new_state_file(void)
 					IFSTATE_FILE_PATH".new");
 		}
 		/* Someone else created the .new file */
-		if (cnt > 30 * 1000) {
+		if (cnt > 30) {
 			/* Waited for 30*30/2 = 450 milliseconds, still EEXIST.
 			 * Assuming a stale file, rewriting it.
 			 */
 			flags = (O_WRONLY | O_CREAT | O_TRUNC);
 			continue;
 		}
-		usleep(cnt);
-		cnt += 1000;
+		msleep(cnt);
+		cnt++;
 	}
 
 	return xfdopen_for_write(fd);

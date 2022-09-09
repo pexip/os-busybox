@@ -17,7 +17,7 @@ extern int capget(cap_user_header_t header, const cap_user_data_t data);
 // This way, libcap needs not be installed in build environment.
 #include "libbb.h"
 
-static const char *const capabilities[] = {
+static const char *const capabilities[] ALIGN_PTR = {
 	"chown",
 	"dac_override",
 	"dac_read_search",
@@ -119,7 +119,7 @@ void FAST_FUNC getcaps(void *arg)
 			caps->u32s = _LINUX_CAPABILITY_U32S_3;
 			break;
 		default:
-			bb_error_msg_and_die("unsupported capability version");
+			bb_simple_error_msg_and_die("unsupported capability version");
 	}
 
 	if (capget(&caps->header, caps->data) != 0)

@@ -112,7 +112,7 @@
 
 static void timeout(int signum UNUSED_PARAM)
 {
-	bb_error_msg_and_die("timed out");
+	bb_simple_error_msg_and_die("timed out");
 }
 
 int nc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -211,12 +211,12 @@ int nc_main(int argc, char **argv)
  accept_again:
 			cfd = accept(sfd, NULL, 0);
 			if (cfd < 0)
-				bb_perror_msg_and_die("accept");
+				bb_simple_perror_msg_and_die("accept");
 			if (!execparam)
 				close(sfd);
 		} else {
 			cfd = create_and_connect_stream_or_die(argv[0],
-				argv[1] ? bb_lookup_port(argv[1], "tcp", 0) : 0);
+				bb_lookup_port(argv[1], "tcp", 0));
 		}
 	}
 
@@ -260,7 +260,7 @@ int nc_main(int argc, char **argv)
 		int nread;
 
 		if (safe_poll(pfds, 2, -1) < 0)
-			bb_perror_msg_and_die("poll");
+			bb_simple_perror_msg_and_die("poll");
 
 		fdidx = 0;
 		while (1) {

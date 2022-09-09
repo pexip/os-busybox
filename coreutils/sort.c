@@ -43,7 +43,7 @@
 
 //usage:#define sort_trivial_usage
 //usage:       "[-nru"
-//usage:	IF_FEATURE_SORT_BIG("gMcszbdfiokt] [-o FILE] [-k start[.offset][opts][,end[.offset][opts]] [-t CHAR")
+//usage:	IF_FEATURE_SORT_BIG("gMcszbdfiokt] [-o FILE] [-k START[.OFS][OPTS][,END[.OFS][OPTS]] [-t CHAR")
 //usage:       "] [FILE]..."
 //usage:#define sort_full_usage "\n\n"
 //usage:       "Sort lines of text\n"
@@ -67,7 +67,7 @@
 //usage:     "\n	-r	Reverse sort order"
 //usage:     "\n	-s	Stable (don't sort ties alphabetically)"
 //usage:     "\n	-u	Suppress duplicate lines"
-//usage:     "\n	-z	Lines are terminated by NUL, not newline"
+//usage:     "\n	-z	NUL terminated input and output"
 ///////:     "\n	-m	Ignored for GNU compatibility"
 ///////:     "\n	-S BUFSZ Ignored for GNU compatibility"
 ///////:     "\n	-T TMPDIR Ignored for GNU compatibility"
@@ -277,7 +277,7 @@ static int compare_keys(const void *xarg, const void *yarg)
 		/* Perform actual comparison */
 		switch (flags & (FLAG_n | FLAG_g | FLAG_M | FLAG_V)) {
 		default:
-			bb_error_msg_and_die("unknown sort type");
+			bb_simple_error_msg_and_die("unknown sort type");
 			break;
 #if defined(HAVE_STRVERSCMP) && HAVE_STRVERSCMP == 1
 		case FLAG_V:
@@ -295,6 +295,7 @@ static int compare_keys(const void *xarg, const void *yarg)
 #if ENABLE_FEATURE_SORT_BIG
 		case FLAG_g: {
 			char *xx, *yy;
+//TODO: needs setlocale(LC_NUMERIC, "C")?
 			double dx = strtod(x, &xx);
 			double dy = strtod(y, &yy);
 			/* not numbers < NaN < -infinity < numbers < +infinity) */
@@ -398,10 +399,10 @@ static unsigned str2u(char **str)
 {
 	unsigned long lu;
 	if (!isdigit((*str)[0]))
-		bb_error_msg_and_die("bad field specification");
+		bb_simple_error_msg_and_die("bad field specification");
 	lu = strtoul(*str, str, 10);
 	if ((sizeof(long) > sizeof(int) && lu > INT_MAX) || !lu)
-		bb_error_msg_and_die("bad field specification");
+		bb_simple_error_msg_and_die("bad field specification");
 	return lu;
 }
 #endif
@@ -461,7 +462,7 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 #if ENABLE_FEATURE_SORT_BIG
 	if (opts & FLAG_t) {
 		if (!str_t[0] || str_t[1])
-			bb_error_msg_and_die("bad -t parameter");
+			bb_simple_error_msg_and_die("bad -t parameter");
 		key_separator = str_t[0];
 	}
 	/* note: below this point we use option_mask32, not opts,
@@ -504,10 +505,10 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
 					because comma isn't in OPT_STR */
 				idx = strchr(OPT_STR, *str_k);
 				if (!idx)
-					bb_error_msg_and_die("unknown key option");
+					bb_simple_error_msg_and_die("unknown key option");
 				flag = 1 << (idx - OPT_STR);
 				if (flag & ~FLAG_allowed_for_k)
-					bb_error_msg_and_die("unknown sort type");
+					bb_simple_error_msg_and_die("unknown sort type");
 				/* b after ',' means strip _trailing_ space */
 				if (i && flag == FLAG_b)
 					flag = FLAG_bb;

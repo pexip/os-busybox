@@ -1,3 +1,111 @@
+busybox (1:1.35.0-2) unstable; urgency=medium
+
+  * Team upload.
+
+  [ Michael Tokarev ]
+  * configs: enable (fast) sha3sum for regular and static builds (#1012828)
+
+  [ Philip Hands ]
+  * enable base64 in udeb
+  * enable salsa-CI (via branch2repo)
+  * remove redundant triggers (dh_installinitramfs creates them)
+  * fix lintian mismatch override
+  * refresh fuzzy patches
+
+ -- Philip Hands <phil@hands.com>  Fri, 02 Sep 2022 17:10:44 +0200
+
+busybox (1:1.35.0-1) unstable; urgency=medium
+
+  [ Nobuhiro Iwamatsu ]
+  * Enable stty applet in busybox-udeb. Closes: #891806
+
+  [ Diederik de Haas ]
+  * Enable CONFIG_FEATURE_TR_CLASSES and CONFIG_FEATURE_TR_EQUIV in deb
+    config. Closes: #998803
+
+  [ Yuval Freund ]
+  * Fix special case for /32 subnets. Closes: #891857
+
+  [ Chris Boot ]
+  * New upstream release. Closes: #1002663
+    - Closes: #985674 [CVE-2021-28831]
+    - Closes: #999567 [CVE-2021-42373, CVE-2021-42374, CVE-2021-42375,
+    CVE-2021-42376, CVE-2021-42377, CVE-2021-42378, CVE-2021-42379,
+    CVE-2021-42380, CVE-2021-42381, CVE-2021-42382, CVE-2021-42383,
+    CVE-2021-42384, CVE-2021-42385, CVE-2021-42386]
+    - Closes: #995833 (uudecode /dev/stdout)
+  * Refresh and rework patches:
+    - Drop patches cherry-picked from upstream.
+    - Drop ignore-ip-valid_lft.patch: no longer needed.
+    - Rework version.patch: KBUILD_STR() has been dropped.
+    - Temporarily drop kFreeBSD patches pending rework.
+  * Update busybox configurations for new upstream version
+  * Don't run test suite in verbose mode: it's easier to read without.
+
+  [ Michael Tokarev ]
+  * d/control: add myself to uploaders
+  * switch to debhelper-compat=13
+  * d/control: add ${misc:Pre-Depends} for packages with the startup scripts
+  * enable tr classes for static build to
+  * enable less applet for udeb (Closes: #949626)
+  * enable base64 applet for regular and static (Closes: #998804)
+  * d/rules: stop filtering -Wformat-security from CFLAG, it is okay now
+  * d/rules: simplify the clean rule, omit dh in there
+  * d/rules: made build-% depending on config-%
+  * d/rules: steal build targets from dh which adds unnecessary indirection
+  * d/rules: only do install & binary targets with dh
+  * d/rules: set SHELL to sh -e to catch errors in shell fragments
+  * d/rules: rework build/install procedure to be more robust wrt the
+    environment variables: ensure busybox is built only once with right
+    CFLAGS/CPPFLAGS/etc settings and not rebuilt during install time
+  * many more smaller tweaks to d/rules:
+    - fast inline version of architecture.mk
+    - move examples & docs install from d/rules to d/*.{docs,examples}
+    - switch from ${b} to $b
+    - allow overriding verbose build by specifying V=
+    - add shortcut targets build-deb configure-udeb test-static etc
+    - export ECHO=/bin/echo for testsuite (it builds its own if no -e)
+  * remove scripts-echo.c-fix-NUL-handling-in-abc-0-def.patch - not needed
+    with the right ECHO=
+  * d/busybox-static.lintian-overrides: add uses-dpkg-database-directly
+  * spelling.diff: two spelling fixes for the source
+  * d/changelog: strip trailing space
+  * d/control: mark zip build-dependency with <!nocheck>
+  * udeb config: enable awk applet the same way as for regular/static builds
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 06 Jun 2022 21:25:41 +0300
+
+busybox (1:1.30.1-7) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * Remove constraints unnecessary since stretch:
+    + busybox: Drop versioned constraint on initramfs-tools in Breaks.
+
+  [ Aurelien Jarno ]
+  * Team upload.
+  * Disable CONFIG_FEATURE_MOUNT_NFS. This option is to "Support mounting NFS
+    file systems on Linux < 2.6.23", which are not supported anymore in
+    Debian. It requires RPC support in glibc, which has just been removed.
+
+ -- Aurelien Jarno <aurel32@debian.org>  Sun, 22 Aug 2021 16:39:45 +0200
+
+busybox (1:1.30.1-6) unstable; urgency=medium
+
+  [ Aurelien Jarno ]
+  * Team upload.
+  * cherry-pick settimeofday for glibc v2.31+ compatibility fix for upstream.
+    Closes: #966074.
+
+ -- Aurelien Jarno <aurel32@debian.org>  Sun, 16 Aug 2020 12:17:38 +0200
+
+busybox (1:1.30.1-5) unstable; urgency=medium
+
+  [ Aurelien Jarno ]
+  * Team upload.
+  * cherry-pick glibc 2.31 compatibility fix from upstream. Closes: #955368.
+
+ -- Aurelien Jarno <aurel32@debian.org>  Mon, 13 Jul 2020 22:15:51 +0200
+
 busybox (1:1.30.1-4pexip1) pexip; urgency=high
 
   * Migrate to Buster
@@ -23,7 +131,7 @@ busybox (1:1.30.1-4) unstable; urgency=high
 
 busybox (1:1.30.1-3) unstable; urgency=high
 
-  * Ignore any valid_lft or preferred_lft parameters to ip, thanks 
+  * Ignore any valid_lft or preferred_lft parameters to ip, thanks
     Steve Langasek. Closes: #924442
   * Fix ip oneline, thanks Dominik George. Closes: #924374
 

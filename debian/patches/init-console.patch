@@ -9,7 +9,7 @@ exist.
 
 --- a/init/init.c
 +++ b/init/init.c
-@@ -604,6 +604,8 @@
+@@ -598,6 +598,8 @@
  	for (a = G.init_action_list; a; a = a->next) {
  		if (!(a->action_type & action_type))
  			continue;

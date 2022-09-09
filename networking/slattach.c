@@ -15,7 +15,6 @@
 //config:config SLATTACH
 //config:	bool "slattach (6.2 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	slattach configures serial line as SLIP network interface.
 
@@ -56,7 +55,7 @@ static int tcsetattr_serial_or_warn(struct termios *state)
 
 	ret = tcsetattr(serial_fd, TCSANOW, state);
 	if (ret != 0) {
-		bb_perror_msg("tcsetattr");
+		bb_simple_perror_msg("tcsetattr");
 		return 1; /* used as exitcode */
 	}
 	return ret; /* 0 */
@@ -77,7 +76,7 @@ static void restore_state_and_exit(int exitcode)
 	cfsetispeed(&state, B0);
 	cfsetospeed(&state, B0);
 	exitcode |= tcsetattr_serial_or_warn(&state);
-	sleep(1);
+	sleep1();
 
 	/* Restore line status */
 	if (tcsetattr_serial_or_warn(&G.saved_state))
@@ -159,7 +158,7 @@ int slattach_main(int argc UNUSED_PARAM, char **argv)
 
 	/* Save current tty state */
 	if (tcgetattr(serial_fd, &G.saved_state) != 0)
-		bb_perror_msg_and_die("tcgetattr");
+		bb_simple_perror_msg_and_die("tcgetattr");
 	/* Save line discipline */
 	xioctl(serial_fd, TIOCGETD, &G.saved_disc);
 

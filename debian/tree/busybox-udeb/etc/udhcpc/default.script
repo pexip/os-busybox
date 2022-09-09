@@ -68,7 +68,7 @@ case "$1" in
 
 		# special case for /32 subnets, use onlink when adding routes
 		[ ".$subnet" = .255.255.255.255 ] \
-			 && onlink=onlink || onlink=
+			 && onlink="dev $interface onlink" || onlink=
 		for r in "$router"; do
 			ip -4 route add default via "$r" $onlink
 		done

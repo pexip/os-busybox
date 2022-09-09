@@ -1,0 +1,23 @@
+---
+include:
+  - https://salsa.debian.org/installer-team/branch2repo/raw/main/trigger_b2r.yml
+
+variables:
+  # re-enable things that branch2repo defaults to disabling
+  SALSA_CI_DISABLE_PIUPARTS: 0
+  SALSA_CI_DISABLE_AUTOPKGTEST: 0
+
+#FIXME: upon first enabling salsa-CI, the blhc test is failing I'm afraid I
+#       (Philip Hands) don't know if setting hardening flags is a good idea for
+#       busybox, so I'll leave it as it is for now, and set `allow_failure`
+#       below.
+#
+#       If/when someone sets the hardening flags successfully, this setting
+#       should go. On the other hand, if it's inappropriate to set them, then
+#       this comment can also go and one can disable the test by adding this to
+#       the variables section above:
+#
+#         SALSA_CI_DISABLE_BLHC: 1
+
+blhc:
+  allow_failure: true

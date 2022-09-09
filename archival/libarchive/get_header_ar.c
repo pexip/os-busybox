@@ -6,7 +6,7 @@
  */
 #include "libbb.h"
 #include "bb_archive.h"
-#include "ar.h"
+#include "ar_.h"
 
 /* WARNING: Clobbers str[len], so fields must be read in reverse order! */
 static unsigned read_num(char *str, int base, int len)
@@ -22,7 +22,7 @@ static unsigned read_num(char *str, int base, int len)
 	 * on misformatted numbers bb_strtou returns all-ones */
 	err = bb_strtou(str, NULL, base);
 	if (err == -1)
-		bb_error_msg_and_die("invalid ar header");
+		bb_simple_error_msg_and_die("invalid ar header");
 	return err;
 }
 
@@ -53,7 +53,7 @@ char FAST_FUNC get_header_ar(archive_handle_t *archive_handle)
 	archive_handle->offset += 60;
 
 	if (ar.formatted.magic[0] != '`' || ar.formatted.magic[1] != '\n')
-		bb_error_msg_and_die("invalid ar header");
+		bb_simple_error_msg_and_die("invalid ar header");
 
 	/*
 	 * Note that the fields MUST be read in reverse order as
@@ -86,14 +86,18 @@ char FAST_FUNC get_header_ar(archive_handle_t *archive_handle)
 			return get_header_ar(archive_handle);
 		}
 #else
-		bb_error_msg_and_die("long filenames not supported");
+		bb_simple_error_msg_and_die("long filenames not supported");
 #endif
 	}
 	/* Only size is always present, the rest may be missing in
 	 * long filename pseudo file. Thus we decode the rest
 	 * after dealing with long filename pseudo file.
+	 *
+	 * GNU binutils in deterministic mode hard codes mode to 0644 (NOT
+	 * 0100644). AR archives can only contain files, so force file
+	 * mode.
 	 */
-	typed->mode = read_num(ar.formatted.mode, 8, sizeof(ar.formatted.mode));
+	typed->mode = read_num(ar.formatted.mode, 8, sizeof(ar.formatted.mode)) | S_IFREG;
 	typed->gid = read_num(ar.formatted.gid, 10, sizeof(ar.formatted.gid));
 	typed->uid = read_num(ar.formatted.uid, 10, sizeof(ar.formatted.uid));
 	typed->mtime = read_num(ar.formatted.date, 10, sizeof(ar.formatted.date));
@@ -107,7 +111,7 @@ char FAST_FUNC get_header_ar(archive_handle_t *archive_handle)
 		long_offset = read_num(&ar.formatted.name[1], 10,
 				       sizeof(ar.formatted.name) - 1);
 		if (long_offset >= archive_handle->ar__long_name_size) {
-			bb_error_msg_and_die("can't resolve long filename");
+			bb_simple_error_msg_and_die("can't resolve long filename");
 		}
 		typed->name = xstrdup(archive_handle->ar__long_names + long_offset);
 	} else

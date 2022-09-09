@@ -36,7 +36,7 @@
 //kbuild:lib-$(CONFIG_IPCALC) += ipcalc.o
 
 //usage:#define ipcalc_trivial_usage
-//usage:       "[OPTIONS] ADDRESS"
+//usage:       "[-bnm"IF_FEATURE_IPCALC_FANCY("phs")"] ADDRESS"
 //usage:       IF_FEATURE_IPCALC_FANCY("[/PREFIX]") " [NETMASK]"
 //usage:#define ipcalc_full_usage "\n\n"
 //usage:       "Calculate and display network settings from IP address\n"
@@ -183,7 +183,7 @@ int ipcalc_main(int argc UNUSED_PARAM, char **argv)
 
 	if (argv[1]) {
 		if (ENABLE_FEATURE_IPCALC_FANCY && have_netmask) {
-			bb_error_msg_and_die("use prefix or netmask, not both");
+			bb_simple_error_msg_and_die("use prefix or netmask, not both");
 		}
 		if (inet_aton(argv[1], &s_netmask) == 0) {
 			bb_error_msg_and_die("bad netmask: %s", argv[1]);

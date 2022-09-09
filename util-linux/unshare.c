@@ -10,7 +10,6 @@
 //config:	bool "unshare (7.2 kb)"
 //config:	default y
 //config:	depends on !NOMMU
-//config:	select PLATFORM_LINUX
 //config:	select LONG_OPTS
 //config:	help
 //config:	Run program with some namespaces unshared from parent.
@@ -24,7 +23,7 @@
 //kbuild:lib-$(CONFIG_UNSHARE) += unshare.o
 
 //usage:#define unshare_trivial_usage
-//usage:       "[OPTIONS] [PROG [ARGS]]"
+//usage:       "[OPTIONS] [PROG ARGS]"
 //usage:#define unshare_full_usage "\n"
 //usage:     "\n	-m,--mount[=FILE]	Unshare mount namespace"
 //usage:     "\n	-u,--uts[=FILE]		Unshare UTS namespace (hostname etc.)"
@@ -32,8 +31,8 @@
 //usage:     "\n	-n,--net[=FILE]		Unshare network namespace"
 //usage:     "\n	-p,--pid[=FILE]		Unshare PID namespace"
 //usage:     "\n	-U,--user[=FILE]	Unshare user namespace"
-//usage:     "\n	-f,--fork		Fork before execing PROG"
-//usage:     "\n	-r,--map-root-user	Map current user to root (implies -U)"
+//usage:     "\n	-f			Fork before execing PROG"
+//usage:     "\n	-r			Map current user to root (implies -U)"
 //usage:     "\n	--mount-proc[=DIR]	Mount /proc filesystem first (implies -m)"
 //usage:     "\n	--propagation slave|shared|private|unchanged"
 //usage:     "\n				Modify mount propagation in mount namespace"
@@ -239,7 +238,7 @@ int unshare_main(int argc UNUSED_PARAM, char **argv)
 	if (setgrp_str) {
 		if (strcmp(setgrp_str, "allow") == 0) {
 			if (opts & OPT_map_root) {
-				bb_error_msg_and_die(
+				bb_simple_error_msg_and_die(
 					"--setgroups=allow and --map-root-user "
 					"are mutually exclusive"
 				);
