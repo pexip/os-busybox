@@ -12,7 +12,7 @@ Vcs-Git: https://salsa.debian.org/installer-team/busybox.git
 Vcs-Browser: https://salsa.debian.org/installer-team/busybox
 Homepage: http://www.busybox.net
 Rules-Requires-Root: no
-XS-Pexip-Upstream: http://deb.debian.org/debian/ buster
+XS-Pexip-Upstream: http://deb.debian.org/debian/ bookworm
 
 Package: busybox
 Architecture: any
