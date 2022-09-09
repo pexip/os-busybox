@@ -1,5 +1,3 @@
-diff --git a/coreutils/sort.c b/coreutils/sort.c
-index f04c606..a889eca 100644
 --- a/coreutils/sort.c
 +++ b/coreutils/sort.c
 @@ -29,6 +29,11 @@
@@ -14,7 +12,7 @@ index f04c606..a889eca 100644
  //config:config FEATURE_SORT_OPTIMIZE_MEMORY
  //config:	bool "Use less memory (but might be slower)"
  //config:	default n   # defaults to N since we are size-paranoid tribe
-@@ -126,6 +131,30 @@ static const char sort_opt_str[] ALIGN1 = "^"
+@@ -126,6 +131,30 @@
   */
  #define OPT_STR (sort_opt_str + 1)
  
@@ -45,7 +43,7 @@ index f04c606..a889eca 100644
  #if ENABLE_FEATURE_SORT_BIG
  static char key_separator;
  
-@@ -428,10 +457,18 @@ int sort_main(int argc UNUSED_PARAM, char **argv)
+@@ -429,10 +458,18 @@
  	xfunc_error_retval = 2;
  
  	/* Parse command line options */
