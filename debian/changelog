@@ -1,3 +1,10 @@
+busybox (1:1.35.0-2pexip1) pexip-bullseye; urgency=medium
+
+  * New upstream version.
+  * Rebuild for pexip bullseye.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Fri, 09 Sep 2022 15:50:17 +0100
+
 busybox (1:1.35.0-2) unstable; urgency=medium
 
   * Team upload.
