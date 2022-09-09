@@ -1,3 +1,9 @@
+busybox (1:1.35.0-2pexip2) UNRELEASED; urgency=medium
+
+  * Add pager alias to more.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Fri, 09 Sep 2022 16:32:19 +0100
+
 busybox (1:1.35.0-2pexip1) pexip-bullseye; urgency=medium
 
   * New upstream version.
