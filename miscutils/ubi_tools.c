@@ -6,42 +6,36 @@
 //config:config UBIATTACH
 //config:	bool "ubiattach (4.2 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Attach MTD device to an UBI device.
 //config:
 //config:config UBIDETACH
 //config:	bool "ubidetach (4.1 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Detach MTD device from an UBI device.
 //config:
 //config:config UBIMKVOL
 //config:	bool "ubimkvol (5.3 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Create a UBI volume.
 //config:
 //config:config UBIRMVOL
 //config:	bool "ubirmvol (4.9 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Delete a UBI volume.
 //config:
 //config:config UBIRSVOL
 //config:	bool "ubirsvol (4.2 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Resize a UBI volume.
 //config:
 //config:config UBIUPDATEVOL
 //config:	bool "ubiupdatevol (5.2 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	Update a UBI volume.
 
@@ -103,7 +97,7 @@ static unsigned get_num_from_file(const char *path, unsigned max)
 int ubi_tools_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 {
-	static const struct suffix_mult size_suffixes[] = {
+	static const struct suffix_mult size_suffixes[] ALIGN_SUFFIX = {
 		{ "KiB", 1024 },
 		{ "MiB", 1024*1024 },
 		{ "GiB", 1024*1024*1024 },
@@ -234,10 +228,10 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 			//	bb_error_msg_and_die("%s invalid maximum size calculated", "UBI");
 		} else
 		if (!(opts & OPTION_s))
-			bb_error_msg_and_die("size not specified");
+			bb_simple_error_msg_and_die("size not specified");
 
 		if (!(opts & OPTION_N))
-			bb_error_msg_and_die("name not specified");
+			bb_simple_error_msg_and_die("name not specified");
 
 		/* the structure is memset(0) above */
 		mkvol_req.vol_id = vol_id;
@@ -257,14 +251,14 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 	} else
 
 //usage:#define ubirmvol_trivial_usage
-//usage:       "-n VOLID / -N VOLNAME UBI_DEVICE"
+//usage:       "-n VOLID | -N VOLNAME UBI_DEVICE"
 //usage:#define ubirmvol_full_usage "\n\n"
 //usage:       "Remove UBI volume\n"
 //usage:     "\n	-n VOLID	Volume ID"
 //usage:     "\n	-N VOLNAME	Volume name"
 	if (do_rmvol) {
 		if (!(opts & (OPTION_n|OPTION_N)))
-			bb_error_msg_and_die("volume id not specified");
+			bb_simple_error_msg_and_die("volume id not specified");
 
 		if (opts & OPTION_N) {
 			unsigned num = ubi_devnum_from_devname(ubi_ctrl);
@@ -288,9 +282,9 @@ int ubi_tools_main(int argc UNUSED_PARAM, char **argv)
 //usage:     "\n	-s SIZE		Size in bytes"
 	if (do_rsvol) {
 		if (!(opts & OPTION_s))
-			bb_error_msg_and_die("size not specified");
+			bb_simple_error_msg_and_die("size not specified");
 		if (!(opts & OPTION_n))
-			bb_error_msg_and_die("volume id not specified");
+			bb_simple_error_msg_and_die("volume id not specified");
 
 		rsvol_req.bytes = size_bytes; /* signed int64_t */
 		rsvol_req.vol_id = vol_id;

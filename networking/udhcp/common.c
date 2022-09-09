@@ -15,7 +15,7 @@ const uint8_t MAC_BCAST_ADDR[6] ALIGN2 = {
 };
 
 #if ENABLE_UDHCPC || ENABLE_UDHCPD
-/* Supported options are easily added here.
+/* Supported options are easily added here, they need to be sorted.
  * See RFC2132 for more options.
  * OPTION_REQ: these options are requested by udhcpc (unless -o).
  */
@@ -49,11 +49,14 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_U32                              , 0x33 }, /* DHCP_LEASE_TIME    */
 	{ OPTION_IP                               , 0x36 }, /* DHCP_SERVER_ID     */
 	{ OPTION_STRING                           , 0x38 }, /* DHCP_ERR_MESSAGE   */
+	{ OPTION_STRING                           , 0x3c }, /* DHCP_VENDOR        */
 //TODO: must be combined with 'sname' and 'file' handling:
 	{ OPTION_STRING_HOST                      , 0x42 }, /* DHCP_TFTP_SERVER_NAME */
 	{ OPTION_STRING                           , 0x43 }, /* DHCP_BOOT_FILE     */
 //TODO: not a string, but a set of LASCII strings:
 //	{ OPTION_STRING                           , 0x4D }, /* DHCP_USER_CLASS    */
+	{ OPTION_STRING                           , 0x64 }, /* DHCP_PCODE         */
+	{ OPTION_STRING                           , 0x65 }, /* DHCP_TCODE         */
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	{ OPTION_DNS_STRING | OPTION_LIST         , 0x77 }, /* DHCP_DOMAIN_SEARCH */
 	{ OPTION_SIP_SERVERS                      , 0x78 }, /* DHCP_SIP_SERVERS   */
@@ -81,7 +84,6 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_U8                               , 0x35 }, /* DHCP_MESSAGE_TYPE  */
 	{ OPTION_U16                              , 0x39 }, /* DHCP_MAX_SIZE      */
 //looks like these opts will work just fine even without these defs:
-//	{ OPTION_STRING                           , 0x3c }, /* DHCP_VENDOR        */
 //	/* not really a string: */
 //	{ OPTION_STRING                           , 0x3d }, /* DHCP_CLIENT_ID     */
 	{ 0, 0 } /* zeroed terminating entry */
@@ -118,9 +120,12 @@ const char dhcp_option_strings[] ALIGN1 =
 	"lease" "\0"            /* DHCP_LEASE_TIME      */
 	"serverid" "\0"         /* DHCP_SERVER_ID       */
 	"message" "\0"          /* DHCP_ERR_MESSAGE     */
+	"vendor" "\0"           /* DHCP_VENDOR          */
 	"tftp" "\0"             /* DHCP_TFTP_SERVER_NAME*/
 	"bootfile" "\0"         /* DHCP_BOOT_FILE       */
 //	"userclass" "\0"        /* DHCP_USER_CLASS      */
+	"tzstr" "\0"            /* DHCP_PCODE           */
+	"tzdbstr" "\0"          /* DHCP_TCODE           */
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	"search" "\0"           /* DHCP_DOMAIN_SEARCH   */
 // doesn't work in udhcpd.conf since OPTION_SIP_SERVERS
@@ -180,6 +185,13 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
 	 */
 };
 
+#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
+void FAST_FUNC log1s(const char *msg)
+{
+	if (dhcp_verbose >= 1)
+		bb_simple_info_msg(msg);
+}
+#endif
 
 #if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 2
 static void log_option(const char *pfx, const uint8_t *opt)
@@ -187,7 +199,7 @@ static void log_option(const char *pfx, const uint8_t *opt)
 	if (dhcp_verbose >= 2) {
 		char buf[256 * 2 + 2];
 		*bin2hex(buf, (void*) (opt + OPT_DATA), opt[OPT_LEN]) = '\0';
-		bb_error_msg("%s: 0x%02x %s", pfx, opt[OPT_CODE], buf);
+		bb_info_msg("%s: 0x%02x %s", pfx, opt[OPT_CODE], buf);
 	}
 }
 #else
@@ -218,79 +230,101 @@ unsigned FAST_FUNC udhcp_option_idx(const char *name, const char *option_strings
 	}
 }
 
-/* Get an option with bounds checking (warning, result is not aligned) */
-uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
+/* Initialize state to be used between subsequent udhcp_scan_options calls */
+void FAST_FUNC init_scan_state(struct dhcp_packet *packet, struct dhcp_scan_state *scan_state)
 {
-	uint8_t *optionptr;
+	scan_state->overload = 0;
+	scan_state->rem = sizeof(packet->options);
+	scan_state->optionptr = packet->options;
+}
+
+/* Iterate over packet's options, each call returning the next option.
+ * scan_state needs to be initialized with init_scan_state beforehand.
+ * Warning, result is not aligned. */
+uint8_t* FAST_FUNC udhcp_scan_options(struct dhcp_packet *packet, struct dhcp_scan_state *scan_state)
+{
 	int len;
-	int rem;
-	int overload = 0;
 	enum {
 		FILE_FIELD101  = FILE_FIELD  * 0x101,
 		SNAME_FIELD101 = SNAME_FIELD * 0x101,
 	};
 
 	/* option bytes: [code][len][data1][data2]..[dataLEN] */
-	optionptr = packet->options;
-	rem = sizeof(packet->options);
 	while (1) {
-		if (rem <= 0) {
+		if (scan_state->rem <= 0) {
  complain:
-			bb_error_msg("bad packet, malformed option field");
+			bb_simple_error_msg("bad packet, malformed option field");
 			return NULL;
 		}
 
 		/* DHCP_PADDING and DHCP_END have no [len] byte */
-		if (optionptr[OPT_CODE] == DHCP_PADDING) {
-			rem--;
-			optionptr++;
+		if (scan_state->optionptr[OPT_CODE] == DHCP_PADDING) {
+			scan_state->rem--;
+			scan_state->optionptr++;
 			continue;
 		}
-		if (optionptr[OPT_CODE] == DHCP_END) {
-			if ((overload & FILE_FIELD101) == FILE_FIELD) {
+		if (scan_state->optionptr[OPT_CODE] == DHCP_END) {
+			if ((scan_state->overload & FILE_FIELD101) == FILE_FIELD) {
 				/* can use packet->file, and didn't look at it yet */
-				overload |= FILE_FIELD101; /* "we looked at it" */
-				optionptr = packet->file;
-				rem = sizeof(packet->file);
+				scan_state->overload |= FILE_FIELD101; /* "we looked at it" */
+				scan_state->optionptr = packet->file;
+				scan_state->rem = sizeof(packet->file);
 				continue;
 			}
-			if ((overload & SNAME_FIELD101) == SNAME_FIELD) {
+			if ((scan_state->overload & SNAME_FIELD101) == SNAME_FIELD) {
 				/* can use packet->sname, and didn't look at it yet */
-				overload |= SNAME_FIELD101; /* "we looked at it" */
-				optionptr = packet->sname;
-				rem = sizeof(packet->sname);
+				scan_state->overload |= SNAME_FIELD101; /* "we looked at it" */
+				scan_state->optionptr = packet->sname;
+				scan_state->rem = sizeof(packet->sname);
 				continue;
 			}
 			break;
 		}
 
-		if (rem <= OPT_LEN)
-			goto complain; /* complain and return NULL */
-		len = 2 + optionptr[OPT_LEN];
-		rem -= len;
-		if (rem < 0)
-			goto complain; /* complain and return NULL */
-
-		if (optionptr[OPT_CODE] == code) {
-			if (optionptr[OPT_LEN] == 0) {
-				/* So far no valid option with length 0 known.
-				 * Having this check means that searching
-				 * for DHCP_MESSAGE_TYPE need not worry
-				 * that returned pointer might be unsafe
-				 * to dereference.
-				 */
-				goto complain; /* complain and return NULL */
-			}
-			log_option("option found", optionptr);
-			return optionptr + OPT_DATA;
+		if (scan_state->rem <= OPT_LEN) /* [len] byte exists? */
+			goto complain; /* no, complain and return NULL */
+		len = scan_state->optionptr[OPT_LEN];
+		/* Skip options with zero length.
+		 * Users report that DHCP server on a TrendNet router (unknown model)
+		 * provides a zero-length option 12 (Host Name)
+		 * (this violates RFC 2132 section 3.14).
+		 */
+		if (len == 0) {
+			scan_state->rem -= 2;
+			scan_state->optionptr += 2;
+			continue;
 		}
+		len += 2;
+		scan_state->rem -= len;
+		if (scan_state->rem < 0) /* option is longer than options field? */
+			goto complain; /* yes, complain and return NULL */
 
-		if (optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
-			if (len >= 3)
-				overload |= optionptr[OPT_DATA];
-			/* fall through */
+		if (scan_state->optionptr[OPT_CODE] == DHCP_OPTION_OVERLOAD) {
+			/* len is known to be >= 3 now, [data] byte exists */
+			scan_state->overload |= scan_state->optionptr[OPT_DATA];
+		} else {
+			uint8_t *return_ptr = scan_state->optionptr;
+			scan_state->optionptr += len;
+			return return_ptr;
 		}
-		optionptr += len;
+		scan_state->optionptr += len;
+	}
+
+	return NULL;
+}
+
+/* Get an option with bounds checking (warning, result is not aligned) */
+uint8_t* FAST_FUNC udhcp_get_option(struct dhcp_packet *packet, int code)
+{
+	uint8_t *optptr;
+	struct dhcp_scan_state scan_state;
+
+	init_scan_state(packet, &scan_state);
+	while ((optptr = udhcp_scan_options(packet, &scan_state)) != NULL) {
+		if (optptr[OPT_CODE] == code) {
+			log_option("option found", optptr);
+			return optptr + OPT_DATA;
+		}
 	}
 
 	/* log3 because udhcpc uses it a lot - very noisy */
@@ -302,7 +336,7 @@ uint8_t* FAST_FUNC udhcp_get_option32(struct dhcp_packet *packet, int code)
 {
 	uint8_t *r = udhcp_get_option(packet, code);
 	if (r) {
-		if (r[-1] != 4)
+		if (r[-OPT_DATA + OPT_LEN] != 4)
 			r = NULL;
 	}
 	return r;
@@ -370,14 +404,29 @@ void FAST_FUNC udhcp_add_simple_option(struct dhcp_packet *packet, uint8_t code,
 #endif
 
 /* Find option 'code' in opt_list */
-struct option_set* FAST_FUNC udhcp_find_option(struct option_set *opt_list, uint8_t code)
+struct option_set* FAST_FUNC udhcp_find_option(struct option_set *opt_list, uint8_t code, bool dhcpv6)
 {
-	while (opt_list && opt_list->data[OPT_CODE] < code)
-		opt_list = opt_list->next;
+	IF_NOT_UDHCPC6(bool dhcpv6 = 0;)
+	uint8_t cur_code;
 
-	if (opt_list && opt_list->data[OPT_CODE] == code)
-		return opt_list;
-	return NULL;
+	for (;;) {
+		if (!opt_list)
+			return opt_list; /* NULL */
+		if (!dhcpv6) {
+			cur_code = opt_list->data[OPT_CODE];
+		} else {
+//FIXME: add support for code > 0xff
+			if (opt_list->data[D6_OPT_CODE] != 0)
+				return NULL;
+			cur_code = opt_list->data[D6_OPT_CODE + 1];
+		}
+		if (cur_code >= code) {
+			if (cur_code == code)
+				return opt_list;
+			return NULL;
+		}
+		opt_list = opt_list->next;
+	}
 }
 
 /* Parse string to IP in network order */
@@ -392,6 +441,40 @@ int FAST_FUNC udhcp_str2nip(const char *str, void *arg)
 	move_to_unaligned32((uint32_t*)arg, lsa->u.sin.sin_addr.s_addr);
 	free(lsa);
 	return 1;
+}
+
+void* FAST_FUNC udhcp_insert_new_option(
+		struct option_set **opt_list,
+		unsigned code,
+		unsigned length,
+		bool dhcpv6)
+{
+	IF_NOT_UDHCPC6(bool dhcpv6 = 0;)
+	struct option_set *new, **curr;
+
+	log2("attaching option %02x to list", code);
+	new = xmalloc(sizeof(*new));
+	if (!dhcpv6) {
+		new->data = xzalloc(length + OPT_DATA);
+		new->data[OPT_CODE] = code;
+		new->data[OPT_LEN] = length;
+	} else {
+		new->data = xzalloc(length + D6_OPT_DATA);
+		new->data[D6_OPT_CODE] = code >> 8;
+		new->data[D6_OPT_CODE + 1] = code & 0xff;
+		new->data[D6_OPT_LEN] = length >> 8;
+		new->data[D6_OPT_LEN + 1] = length & 0xff;
+	}
+
+	curr = opt_list;
+//FIXME: DHCP6 codes > 255!!
+	while (*curr && (*curr)->data[OPT_CODE] < code)
+		curr = &(*curr)->next;
+
+	new->next = *curr;
+	*curr = new;
+
+	return new->data;
 }
 
 /* udhcp_str2optset:
@@ -422,43 +505,23 @@ static NOINLINE void attach_option(
 		if (errno)
 			bb_error_msg_and_die("malformed hex string '%s'", buffer);
 		length = end - allocated;
+		buffer = allocated;
 	}
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	if ((optflag->flags & OPTION_TYPE_MASK) == OPTION_DNS_STRING) {
 		/* reuse buffer and length for RFC1035-formatted string */
-		allocated = buffer = (char *)dname_enc(NULL, 0, buffer, &length);
+		allocated = buffer = (char *)dname_enc(/*NULL, 0,*/ buffer, &length);
 	}
 #endif
 
-	existing = udhcp_find_option(*opt_list, optflag->code);
+	existing = udhcp_find_option(*opt_list, optflag->code, dhcpv6);
 	if (!existing) {
-		struct option_set *new, **curr;
-
 		/* make a new option */
-		log2("attaching option %02x to list", optflag->code);
-		new = xmalloc(sizeof(*new));
-		if (!dhcpv6) {
-			new->data = xmalloc(length + OPT_DATA);
-			new->data[OPT_CODE] = optflag->code;
-			new->data[OPT_LEN] = length;
-			memcpy(new->data + OPT_DATA, (allocated ? allocated : buffer),
-					length);
-		} else {
-			new->data = xmalloc(length + D6_OPT_DATA);
-			new->data[D6_OPT_CODE] = optflag->code >> 8;
-			new->data[D6_OPT_CODE + 1] = optflag->code & 0xff;
-			new->data[D6_OPT_LEN] = length >> 8;
-			new->data[D6_OPT_LEN + 1] = length & 0xff;
-			memcpy(new->data + D6_OPT_DATA, (allocated ? allocated : buffer),
-					length);
-		}
-
-		curr = opt_list;
-		while (*curr && (*curr)->data[OPT_CODE] < optflag->code)
-			curr = &(*curr)->next;
-
-		new->next = *curr;
-		*curr = new;
+		uint8_t *p = udhcp_insert_new_option(opt_list, optflag->code, length, dhcpv6);
+		if (!dhcpv6)
+			memcpy(p + OPT_DATA, buffer, length);
+		else
+			memcpy(p + D6_OPT_DATA, buffer, length);
 		goto ret;
 	}
 
@@ -472,6 +535,8 @@ static NOINLINE void attach_option(
 			/* actually 255 is ok too, but adding a space can overlow it */
 
 			existing->data = xrealloc(existing->data, OPT_DATA + 1 + old_len + length);
+// So far dhcp_optflags[] has no OPTION_STRING[_HOST] | OPTION_LIST items
+#if 0
 			if ((optflag->flags & OPTION_TYPE_MASK) == OPTION_STRING
 			 || (optflag->flags & OPTION_TYPE_MASK) == OPTION_STRING_HOST
 			) {
@@ -479,7 +544,9 @@ static NOINLINE void attach_option(
 				existing->data[OPT_DATA + old_len] = ' ';
 				old_len++;
 			}
-			memcpy(existing->data + OPT_DATA + old_len, (allocated ? allocated : buffer), length);
+#endif
+
+			memcpy(existing->data + OPT_DATA + old_len, buffer, length);
 			existing->data[OPT_LEN] = old_len + length;
 		} /* else, ignore the data, we could put this in a second option in the future */
 	} /* else, ignore the new data */
@@ -506,7 +573,7 @@ int FAST_FUNC udhcp_str2optset(const char *const_str, void *arg,
 
 	/* Cheat, the only *const* str possible is "" */
 	str = (char *) const_str;
-	opt = strtok(str, " \t=:");
+	opt = strtok_r(str, " \t=:", &str);
 	if (!opt)
 		return 0;
 
@@ -530,10 +597,10 @@ int FAST_FUNC udhcp_str2optset(const char *const_str, void *arg,
 		char *val;
 
 		if (optflag->flags == OPTION_BIN) {
-			val = strtok(NULL, ""); /* do not split "'q w e'" */
-			trim(val);
+			val = strtok_r(NULL, "", &str); /* do not split "'q w e'" */
+			if (val) trim(val);
 		} else
-			val = strtok(NULL, ", \t");
+			val = strtok_r(NULL, ", \t", &str);
 		if (!val)
 			break;
 
@@ -547,13 +614,13 @@ int FAST_FUNC udhcp_str2optset(const char *const_str, void *arg,
 			break;
 		case OPTION_IP_PAIR:
 			retval = udhcp_str2nip(val, buffer);
-			val = strtok(NULL, ", \t/-");
+			val = strtok_r(NULL, ", \t/-", &str);
 			if (!val)
 				retval = 0;
 			if (retval)
 				retval = udhcp_str2nip(val, buffer + 4);
 			break;
-case_OPTION_STRING:
+ case_OPTION_STRING:
 		case OPTION_STRING:
 		case OPTION_STRING_HOST:
 #if ENABLE_FEATURE_UDHCP_RFC3397
@@ -611,7 +678,7 @@ case_OPTION_STRING:
 				*slash = '\0';
 				retval = udhcp_str2nip(val, buffer + 1);
 				buffer[0] = mask = bb_strtou(slash + 1, NULL, 10);
-				val = strtok(NULL, ", \t/-");
+				val = strtok_r(NULL, ", \t/-", &str);
 				if (!val || mask > 32 || errno)
 					retval = 0;
 				if (retval) {

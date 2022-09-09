@@ -29,9 +29,9 @@
 //kbuild: lib-$(CONFIG_DNSDOMAINNAME) += hostname.o
 
 //usage:#define hostname_trivial_usage
-//usage:       "[OPTIONS] [HOSTNAME | -F FILE]"
+//usage:       "[-sidf] [HOSTNAME | -F FILE]"
 //usage:#define hostname_full_usage "\n\n"
-//usage:       "Get or set hostname or DNS domain name\n"
+//usage:       "Show or set hostname or DNS domain name\n"
 //usage:     "\n	-s	Short"
 //usage:     "\n	-i	Addresses for the hostname"
 //usage:     "\n	-d	DNS domain name"
@@ -61,7 +61,7 @@ static void do_sethostname(char *s, int isfile)
 	} else if (sethostname(s, strlen(s))) {
 //		if (errno == EPERM)
 //			bb_error_msg_and_die(bb_msg_perm_denied_are_you_root);
-		bb_perror_msg_and_die("sethostname");
+		bb_simple_perror_msg_and_die("sethostname");
 	}
 }
 

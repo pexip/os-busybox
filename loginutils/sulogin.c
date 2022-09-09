@@ -56,7 +56,7 @@ int sulogin_main(int argc UNUSED_PARAM, char **argv)
 
 	pwd = getpwuid(0);
 	if (!pwd) {
-		bb_error_msg_and_die("no password entry for root");
+		bb_simple_error_msg_and_die("no password entry for root");
 	}
 
 	while (1) {
@@ -68,17 +68,17 @@ int sulogin_main(int argc UNUSED_PARAM, char **argv)
 		);
 		if (r < 0) {
 			/* ^D, ^C, timeout, or read error */
-			bb_error_msg("normal startup");
+			bb_simple_info_msg("normal startup");
 			return 0;
 		}
 		if (r > 0) {
 			break;
 		}
-		bb_do_delay(LOGIN_FAIL_DELAY);
-		bb_error_msg("Login incorrect");
+		pause_after_failed_login();
+		bb_simple_info_msg("Login incorrect");
 	}
 
-	bb_error_msg("starting shell for system maintenance");
+	bb_simple_info_msg("starting shell for system maintenance");
 
 	IF_SELINUX(renew_current_security_context());
 
@@ -89,5 +89,5 @@ int sulogin_main(int argc UNUSED_PARAM, char **argv)
 		shell = pwd->pw_shell;
 
 	/* Exec login shell with no additional parameters. Never returns. */
-	run_shell(shell, 1, NULL);
+	exec_login_shell(shell);
 }

@@ -156,57 +156,43 @@ enum {
 static const char *normalize(const char *arg)
 {
 	char *bufptr;
-#if ENABLE_FEATURE_CLEAN_UP
-	static char *BUFFER = NULL;
-	free(BUFFER);
-#else
 	char *BUFFER;
-#endif
 
-	if (!quote) { /* Just copy arg */
-		BUFFER = xstrdup(arg);
-		return BUFFER;
+	if (!quote) { /* Just return arg */
+		return arg;
 	}
 
 	/* Each character in arg may take up to four characters in the result:
 	   For a quote we need a closing quote, a backslash, a quote and an
 	   opening quote! We need also the global opening and closing quote,
 	   and one extra character for '\0'. */
-	BUFFER = xmalloc(strlen(arg)*4 + 3);
+	BUFFER = auto_string(xmalloc(strlen(arg)*4 + 3));
 
 	bufptr = BUFFER;
 	*bufptr ++= '\'';
 
 	while (*arg) {
-		if (*arg == '\'') {
-			/* Quote: replace it with: '\'' */
-			*bufptr ++= '\'';
-			*bufptr ++= '\\';
-			*bufptr ++= '\'';
-			*bufptr ++= '\'';
-		} else if (shell_TCSH && *arg == '!') {
-			/* Exclamation mark: replace it with: \! */
-			*bufptr ++= '\'';
-			*bufptr ++= '\\';
-			*bufptr ++= '!';
-			*bufptr ++= '\'';
-		} else if (shell_TCSH && *arg == '\n') {
+		if (shell_TCSH && *arg == '\n') {
 			/* Newline: replace it with: \n */
-			*bufptr ++= '\\';
-			*bufptr ++= 'n';
-		} else if (shell_TCSH && isspace(*arg)) {
-			/* Non-newline whitespace: replace it with \<ws> */
-			*bufptr ++= '\'';
-			*bufptr ++= '\\';
-			*bufptr ++= *arg;
-			*bufptr ++= '\'';
+			*bufptr++ = '\\';
+			*bufptr++ = 'n';
 		} else
+		if ((shell_TCSH && (*arg == '!' || isspace(*arg)))
+		 || *arg == '\''
+		) {
+			/* Quote exclamation marks, non-NL whitespace and quotes */
+			*bufptr++ = '\'';
+			*bufptr++ = '\\';
+			*bufptr++ = *arg;
+			*bufptr++ = '\'';
+		} else {
 			/* Just copy */
 			*bufptr ++= *arg;
+		}
 		arg++;
 	}
-	*bufptr ++= '\'';
-	*bufptr ++= '\0';
+	*bufptr++ = '\'';
+	*bufptr++ = '\0';
 	return BUFFER;
 }
 
@@ -289,12 +275,13 @@ static struct option *add_long_options(struct option *long_options, char *option
 {
 	int long_nr = 0;
 	int arg_opt, tlen;
-	char *tokptr = strtok(options, ", \t\n");
+	char *tokptr;
 
 	if (long_options)
 		while (long_options[long_nr].name)
 			long_nr++;
 
+	tokptr = strtok_r(options, ", \t\n", &options);
 	while (tokptr) {
 		arg_opt = no_argument;
 		tlen = strlen(tokptr);
@@ -308,7 +295,7 @@ static struct option *add_long_options(struct option *long_options, char *option
 				}
 				tokptr[tlen] = '\0';
 				if (tlen == 0)
-					bb_error_msg_and_die("empty long option specified");
+					bb_simple_error_msg_and_die("empty long option specified");
 			}
 			long_options = xrealloc_vector(long_options, 4, long_nr);
 			long_options[long_nr].has_arg = arg_opt;
@@ -318,7 +305,7 @@ static struct option *add_long_options(struct option *long_options, char *option
 			long_nr++;
 			/*memset(&long_options[long_nr], 0, sizeof(long_options[0])); - xrealloc_vector did it */
 		}
-		tokptr = strtok(NULL, ", \t\n");
+		tokptr = strtok_r(NULL, ", \t\n", &options);
 	}
 	return long_options;
 }
@@ -326,12 +313,18 @@ static struct option *add_long_options(struct option *long_options, char *option
 
 static void set_shell(const char *new_shell)
 {
-	if (strcmp(new_shell, "bash") == 0 || strcmp(new_shell, "sh") == 0)
-		return;
-	if (strcmp(new_shell, "tcsh") == 0 || strcmp(new_shell, "csh") == 0)
+	switch (index_in_strings("bash\0sh\0tcsh\0csh\0", new_shell)) {
+	case 0:
+	case 1:
+		break;
+	case 2:
+	case 3:
 		option_mask32 |= SHELL_IS_TCSH;
-	else
+		break;
+	default:
 		bb_error_msg("unknown shell '%s', assuming bash", new_shell);
+		break;
+	}
 }
 
 
@@ -380,7 +373,7 @@ int getopt_main(int argc, char **argv)
 			puts(" --");
 			return 0;
 		}
-		bb_error_msg_and_die("missing optstring argument");
+		bb_simple_error_msg_and_die("missing optstring argument");
 	}
 
 	if (argv[1][0] != '-' || compatible) {
@@ -416,7 +409,7 @@ int getopt_main(int argc, char **argv)
 	if (!optstr) {
 		optstr = argv[++n];
 		if (!optstr)
-			bb_error_msg_and_die("missing optstring argument");
+			bb_simple_error_msg_and_die("missing optstring argument");
 	}
 
 	argv[n] = name ? name : argv[0];

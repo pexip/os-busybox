@@ -9,7 +9,6 @@
 //config:config SWITCH_ROOT
 //config:	bool "switch_root (5.5 kb)"
 //config:	default y
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	The switch_root utility is used from initramfs to select a new
 //config:	root device. Under initramfs, you have to use this instead of
@@ -69,11 +68,22 @@ extern int capget(cap_user_header_t header, const cap_user_data_t data);
 # define MS_MOVE     8192
 #endif
 
+static void delete_contents(const char *directory, dev_t rootdev);
+
+static int FAST_FUNC rmrf(const char *directory, struct dirent *d, void *rootdevp)
+{
+	char *newdir = concat_subpath_file(directory, d->d_name);
+	if (newdir) { // not . or ..
+		// Recurse to delete contents
+		delete_contents(newdir, *(dev_t*)rootdevp);
+		free(newdir);
+	}
+	return 0;
+}
+
 // Recursively delete contents of rootfs
 static void delete_contents(const char *directory, dev_t rootdev)
 {
-	DIR *dir;
-	struct dirent *d;
 	struct stat st;
 
 	// Don't descend into other filesystems
@@ -82,25 +92,7 @@ static void delete_contents(const char *directory, dev_t rootdev)
 
 	// Recursively delete the contents of directories
 	if (S_ISDIR(st.st_mode)) {
-		dir = opendir(directory);
-		if (dir) {
-			while ((d = readdir(dir))) {
-				char *newdir = d->d_name;
-
-				// Skip . and ..
-				if (DOT_OR_DOTDOT(newdir))
-					continue;
-
-				// Recurse to delete contents
-				newdir = concat_path_file(directory, newdir);
-				delete_contents(newdir, rootdev);
-				free(newdir);
-			}
-			closedir(dir);
-
-			// Directory should now be empty, zap it
-			rmdir(directory);
-		}
+		iterate_on_dir(directory, rmrf, &rootdev);
 	} else {
 		// It wasn't a directory, zap it
 		unlink(directory);
@@ -117,7 +109,7 @@ static void drop_capset(int cap_idx)
 	getcaps(&caps);
 	caps.data[CAP_TO_INDEX(cap_idx)].inheritable &= ~CAP_TO_MASK(cap_idx);
 	if (capset(&caps.header, caps.data) != 0)
-		bb_perror_msg_and_die("capset");
+		bb_simple_perror_msg_and_die("capset");
 }
 
 static void drop_bounding_set(int cap_idx)
@@ -165,7 +157,7 @@ static void drop_capabilities(char *string)
 {
 	char *cap;
 
-	cap = strtok(string, ",");
+	cap = strtok_r(string, ",", &string);
 	while (cap) {
 		unsigned cap_idx;
 
@@ -175,7 +167,7 @@ static void drop_capabilities(char *string)
 		drop_bounding_set(cap_idx);
 		drop_capset(cap_idx);
 		bb_error_msg("dropped capability: %s", cap);
-		cap = strtok(NULL, ",");
+		cap = strtok_r(NULL, ",", &string);
 	}
 }
 #endif
@@ -253,7 +245,7 @@ int switch_root_main(int argc UNUSED_PARAM, char **argv)
 	if ((unsigned)stfs.f_type != RAMFS_MAGIC
 	 && (unsigned)stfs.f_type != TMPFS_MAGIC
 	) {
-		bb_error_msg_and_die("root filesystem is not ramfs/tmpfs");
+		bb_simple_error_msg_and_die("root filesystem is not ramfs/tmpfs");
 	}
 
 	if (!dry_run) {
@@ -263,7 +255,7 @@ int switch_root_main(int argc UNUSED_PARAM, char **argv)
 		// Overmount / with newdir and chroot into it
 		if (mount(".", "/", NULL, MS_MOVE, NULL)) {
 			// For example, fails when newroot is not a mountpoint
-			bb_perror_msg_and_die("error moving root");
+			bb_simple_perror_msg_and_die("error moving root");
 		}
 	}
 	xchroot(".");

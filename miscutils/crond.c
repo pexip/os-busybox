@@ -63,7 +63,7 @@
 //kbuild:lib-$(CONFIG_CROND) += crond.o
 
 //usage:#define crond_trivial_usage
-//usage:       "-fbS -l N " IF_FEATURE_CROND_D("-d N ") "-L LOGFILE -c DIR"
+//usage:       "[-fbS] [-l N] " IF_FEATURE_CROND_D("[-d N] ") "[-L LOGFILE] [-c DIR]"
 //usage:#define crond_full_usage "\n\n"
 //usage:       "	-f	Foreground"
 //usage:     "\n	-b	Background (default)"
@@ -181,9 +181,7 @@ static void crondlog(unsigned level, const char *msg, va_list va)
 		 * need not touch syslog_level
 		 * (they are ok with LOG_ERR default).
 		 */
-		syslog_level = LOG_INFO;
-		bb_verror_msg(msg, va, /* strerr: */ NULL);
-		syslog_level = LOG_ERR;
+		bb_vinfo_msg(msg, va);
 	}
 }
 
@@ -494,7 +492,7 @@ static void load_crontab(const char *fileName)
 					const char *name;
 					const char tokens[8];
 				} SpecialEntry;
-				static const SpecialEntry SpecAry[] = {
+				static const SpecialEntry SpecAry[] ALIGN8 = {
 					/*              hour  day   month weekday */
 					{ "yearly",     "0\0" "1\0" "1\0" "*" },
 					{ "annually",   "0\0" "1\0" "1\0" "*" },
@@ -733,7 +731,7 @@ fork_job(const char *user, int mailFd, CronLine *line, bool run_sendmail)
 	logmode = sv_logmode;
 
 	if (pid < 0) {
-		bb_perror_msg("vfork");
+		bb_simple_perror_msg("vfork");
  err:
 		pid = 0;
 	} /* else: PARENT, FORK SUCCESS */
@@ -863,7 +861,7 @@ static pid_t start_one_job(const char *user, CronLine *line)
 		bb_error_msg_and_die("can't execute '%s' for user %s", shell, user);
 	}
 	if (pid < 0) {
-		bb_perror_msg("vfork");
+		bb_simple_perror_msg("vfork");
  err:
 		pid = 0;
 	}
@@ -1056,7 +1054,7 @@ int crond_main(int argc UNUSED_PARAM, char **argv)
 
 	log8("crond (busybox "BB_VER") started, log level %d", G.log_level);
 	rescan_crontab_dir();
-	write_pidfile(CONFIG_PID_FILE_PATH "/crond.pid");
+	write_pidfile_std_path_and_ext("crond");
 #if ENABLE_FEATURE_CROND_SPECIAL_TIMES
 	if (touch_reboot_file())
 		start_jobs(START_ME_REBOOT); /* start @reboot entries, if any */
@@ -1108,7 +1106,7 @@ int crond_main(int argc UNUSED_PARAM, char **argv)
 		process_cron_update_file();
 		log5("wakeup dt=%ld", dt);
 		if (dt < -60 * 60 || dt > 60 * 60) {
-			bb_error_msg("time disparity of %ld minutes detected", dt / 60);
+			bb_info_msg("time disparity of %ld minutes detected", dt / 60);
 			/* and we do not run any jobs in this case */
 		} else if (dt > 0) {
 			/* Usual case: time advances forward, as expected */

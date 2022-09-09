@@ -222,8 +222,9 @@ enum {
 	OPT_d = (1 << 0),
 	OPT_n = (1 << 1),
 	OPT_b = (1 << 2),
-	OPT_m = (1 << 3),
-	OPT_EOF = (1 << 4), /* pseudo: "we saw EOF in stdin" */
+	OPT_H = (1 << 3),
+	OPT_m = (1 << 4),
+	OPT_EOF = (1 << 5), /* pseudo: "we saw EOF in stdin" */
 };
 #define OPT_BATCH_MODE (option_mask32 & OPT_b)
 
@@ -711,7 +712,7 @@ static NOINLINE void display_process_list(int lines_rem, int scr_width)
 		);
 		if ((int)(scr_width - col) > 1)
 			read_cmdline(line_buf + col, scr_width - col, s->pid, s->comm);
-		fputs(line_buf, stdout);
+		fputs_stdout(line_buf);
 		/* printf(" %d/%d %lld/%lld", s->pcpu, total_pcpu,
 			cur_jif.busy - prev_jif.busy, cur_jif.total - prev_jif.total); */
 		s++;
@@ -978,6 +979,11 @@ static unsigned handle_input(unsigned scan_mask, duration_t interval)
 		IF_FEATURE_TOPMEM(&& scan_mask != TOPMEM_MASK)
 		) {
 			scan_mask ^= PSSCAN_TASKS;
+#  if ENABLE_FEATURE_TOP_CPU_USAGE_PERCENTAGE
+			free(prev_hist);
+			prev_hist = NULL;
+			prev_hist_count = 0;
+#   endif
 			continue;
 		}
 # endif
@@ -999,10 +1005,10 @@ static unsigned handle_input(unsigned scan_mask, duration_t interval)
 #  if ENABLE_FEATURE_TOPMEM
 		if (c == 's') {
 			scan_mask = TOPMEM_MASK;
+			sort_field = (sort_field + 1) % NUM_SORT_FIELD;
 			free(prev_hist);
 			prev_hist = NULL;
 			prev_hist_count = 0;
-			sort_field = (sort_field + 1) % NUM_SORT_FIELD;
 			continue;
 		}
 #  endif
@@ -1043,11 +1049,12 @@ static unsigned handle_input(unsigned scan_mask, duration_t interval)
 //usage:# define IF_SHOW_THREADS_OR_TOP_SMP(...)
 //usage:#endif
 //usage:#define top_trivial_usage
-//usage:       "[-b] [-nCOUNT] [-dSECONDS]" IF_FEATURE_TOPMEM(" [-m]")
+//usage:       "[-b"IF_FEATURE_TOPMEM("m")IF_FEATURE_SHOW_THREADS("H")"]"
+//usage:       " [-n COUNT] [-d SECONDS]"
 //usage:#define top_full_usage "\n\n"
-//usage:       "Provide a view of process activity in real time."
+//usage:       "Show a view of process activity in real time."
 //usage:   "\n""Read the status of all processes from /proc each SECONDS"
-//usage:   "\n""and display a screenful of them."
+//usage:   "\n""and show a screenful of them."
 //usage:   "\n"
 //usage:	IF_FEATURE_TOP_INTERACTIVE(
 //usage:       "Keys:"
@@ -1068,14 +1075,16 @@ static unsigned handle_input(unsigned scan_mask, duration_t interval)
 //usage:                IF_FEATURE_TOP_SMP_CPU("1: toggle SMP")
 //usage:	)
 //usage:   "\n""	Q,^C: exit"
-//usage:   "\n"
 //usage:   "\n""Options:"
 //usage:	)
 //usage:   "\n""	-b	Batch mode"
 //usage:   "\n""	-n N	Exit after N iterations"
-//usage:   "\n""	-d N	Delay between updates"
+//usage:   "\n""	-d SEC	Delay between updates"
 //usage:	IF_FEATURE_TOPMEM(
 //usage:   "\n""	-m	Same as 's' key"
+//usage:	)
+//usage:	IF_FEATURE_SHOW_THREADS(
+//usage:   "\n""	-H	Show threads"
 //usage:	)
 
 /* Interactive testing:
@@ -1111,7 +1120,8 @@ int top_main(int argc UNUSED_PARAM, char **argv)
 
 	/* all args are options; -n NUM */
 	make_all_argv_opts(argv); /* options can be specified w/o dash */
-	col = getopt32(argv, "d:n:b"IF_FEATURE_TOPMEM("m"), &str_interval, &str_iterations);
+	col = getopt32(argv, "d:n:bHm", &str_interval, &str_iterations);
+	/* NB: -m and -H are accepted even if not configured */
 #if ENABLE_FEATURE_TOPMEM
 	if (col & OPT_m) /* -m (busybox specific) */
 		scan_mask = TOPMEM_MASK;
@@ -1130,6 +1140,11 @@ int top_main(int argc UNUSED_PARAM, char **argv)
 			str_iterations++;
 		iterations = xatou(str_iterations);
 	}
+#if ENABLE_FEATURE_SHOW_THREADS
+	if (col & OPT_H) {
+		scan_mask |= PSSCAN_TASKS;
+	}
+#endif
 
 	/* change to /proc */
 	xchdir("/proc");
@@ -1219,7 +1234,7 @@ int top_main(int argc UNUSED_PARAM, char **argv)
 #endif
 		} /* end of "while we read /proc" */
 		if (ntop == 0) {
-			bb_error_msg("no process info in /proc");
+			bb_simple_error_msg("no process info in /proc");
 			break;
 		}
 

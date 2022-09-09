@@ -33,7 +33,6 @@
 //config:	bool "Use the klogctl() interface"
 //config:	default y
 //config:	depends on KLOGD
-//config:	select PLATFORM_LINUX
 //config:	help
 //config:	The klogd applet supports two interfaces for reading
 //config:	kernel messages. Linux provides the klogctl() interface
@@ -101,7 +100,7 @@ static void klogd_close(void)
 #else
 
 # ifndef _PATH_KLOG
-#  ifdef __GNU__
+#  if defined(__GNU__) || defined (__FreeBSD__)
 #   define _PATH_KLOG "/dev/klog"
 #  else
 #   error "your system's _PATH_KLOG is unknown"
@@ -227,11 +226,11 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 
 	signal(SIGHUP, SIG_IGN);
 	/* We want klogd_read to not be restarted, thus _norestart: */
-	bb_signals_recursive_norestart(BB_FATAL_SIGS, record_signo);
+	bb_signals_norestart(BB_FATAL_SIGS, record_signo);
 
 	syslog(LOG_NOTICE, "klogd started: %s", bb_banner);
 
-	write_pidfile(CONFIG_PID_FILE_PATH "/klogd.pid");
+	write_pidfile_std_path_and_ext("klogd");
 
 	used = 0;
 	while (!bb_got_signal) {
@@ -244,7 +243,7 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 		if (n < 0) {
 			if (errno == EINTR)
 				continue;
-			bb_perror_msg(READ_ERROR);
+			bb_simple_perror_msg(READ_ERROR);
 			break;
 		}
 		start[n] = '\0';
@@ -295,7 +294,7 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
 
 	klogd_close();
 	syslog(LOG_NOTICE, "klogd: exiting");
-	remove_pidfile(CONFIG_PID_FILE_PATH "/klogd.pid");
+	remove_pidfile_std_path_and_ext("klogd");
 	if (bb_got_signal)
 		kill_myself_with_sig(bb_got_signal);
 	return EXIT_FAILURE;

@@ -14,7 +14,7 @@
 //kbuild:lib-$(CONFIG_FLOCK) += flock.o
 
 //usage:#define flock_trivial_usage
-//usage:       "[-sxun] FD|{FILE [-c] PROG ARGS}"
+//usage:       "[-sxun] FD | { FILE [-c] PROG ARGS }"
 //usage:#define flock_full_usage "\n\n"
 //usage:       "[Un]lock file descriptor, or lock FILE, run PROG\n"
 //usage:     "\n	-s	Shared lock"
@@ -73,7 +73,7 @@ int flock_main(int argc UNUSED_PARAM, char **argv)
 	) {
 		argv++;
 		if (argv[1])
-			bb_error_msg_and_die("-c takes only one argument");
+			bb_simple_error_msg_and_die("-c takes only one argument");
 		opt |= OPT_c;
 	}
 

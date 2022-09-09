@@ -422,19 +422,19 @@ print_named_ascii(size_t n_bytes, const char *block,
 
 		masked_c &= 0x7f;
 		if (masked_c == 0x7f) {
-			fputs(" del", stdout);
+			fputs_stdout(" del");
 			continue;
 		}
 		if (masked_c > ' ') {
 			buf[3] = masked_c;
-			fputs(buf, stdout);
+			fputs_stdout(buf);
 			continue;
 		}
 		/* Why? Because printf(" %3.3s") is much slower... */
 		buf[6] = charname[masked_c][0];
 		buf[7] = charname[masked_c][1];
 		buf[8] = charname[masked_c][2];
-		fputs(buf+5, stdout);
+		fputs_stdout(buf+5);
 	}
 }
 
@@ -451,7 +451,7 @@ print_ascii(size_t n_bytes, const char *block,
 
 		if (ISPRINT(c)) {
 			buf[3] = c;
-			fputs(buf, stdout);
+			fputs_stdout(buf);
 			continue;
 		}
 		switch (c) {
@@ -485,7 +485,7 @@ print_ascii(size_t n_bytes, const char *block,
 			buf[8] = (c & 7) + '0';
 			s = buf + 5;
 		}
-		fputs(s, stdout);
+		fputs_stdout(s);
 	}
 }
 
@@ -536,7 +536,7 @@ check_and_close(void)
 	}
 
 	if (ferror(stdout)) {
-		bb_error_msg_and_die(bb_msg_write_error);
+		bb_simple_error_msg_and_die(bb_msg_write_error);
 	}
 }
 
@@ -627,7 +627,7 @@ decode_one_format(const char *s_orig, const char *s, struct tspec *tspec)
 				bytes_to_unsigned_dec_digits,
 				bytes_to_hex_digits,
 			};
-			static const char doux_fmtstring[][sizeof(" %%0%u%s")] = {
+			static const char doux_fmtstring[][sizeof(" %%0%u%s")] ALIGN1 = {
 				" %%%u%s",
 				" %%0%u%s",
 				" %%%u%s",
@@ -841,7 +841,7 @@ skip(off_t n_skip)
 	}
 
 	if (n_skip)
-		bb_error_msg_and_die("can't skip past end of combined input");
+		bb_simple_error_msg_and_die("can't skip past end of combined input");
 }
 
 
@@ -881,7 +881,7 @@ format_address_label(off_t address, char c)
 static void
 dump_hexl_mode_trailer(size_t n_bytes, const char *block)
 {
-	fputs("  >", stdout);
+	fputs_stdout("  >");
 	while (n_bytes--) {
 		unsigned c = *(unsigned char *) block++;
 		c = (ISPRINT(c) ? c : '.');
@@ -1121,13 +1121,13 @@ dump_strings(off_t address, off_t end_offset)
 
 		for (i = 0; (c = buf[i]); i++) {
 			switch (c) {
-			case '\007': fputs("\\a", stdout); break;
-			case '\b': fputs("\\b", stdout); break;
-			case '\f': fputs("\\f", stdout); break;
-			case '\n': fputs("\\n", stdout); break;
-			case '\r': fputs("\\r", stdout); break;
-			case '\t': fputs("\\t", stdout); break;
-			case '\v': fputs("\\v", stdout); break;
+			case '\007': fputs_stdout("\\a"); break;
+			case '\b': fputs_stdout("\\b"); break;
+			case '\f': fputs_stdout("\\f"); break;
+			case '\n': fputs_stdout("\\n"); break;
+			case '\r': fputs_stdout("\\r"); break;
+			case '\t': fputs_stdout("\\t"); break;
+			case '\v': fputs_stdout("\\v"); break;
 			default: putchar(c);
 			}
 		}
@@ -1148,7 +1148,7 @@ dump_strings(off_t address, off_t end_offset)
 static int
 parse_old_offset(const char *s, off_t *offset)
 {
-	static const struct suffix_mult Bb[] = {
+	static const struct suffix_mult Bb[] ALIGN_SUFFIX = {
 		{ "B", 1024 },
 		{ "b", 512 },
 		{ "", 0 }
@@ -1308,10 +1308,10 @@ int od_main(int argc UNUSED_PARAM, char **argv)
 					pseudo_start = o2;
 					argv[1] = NULL;
 				} else {
-					bb_error_msg_and_die("the last two arguments must be offsets");
+					bb_simple_error_msg_and_die("the last two arguments must be offsets");
 				}
 			} else { /* >3 args */
-				bb_error_msg_and_die("too many arguments");
+				bb_simple_error_msg_and_die("too many arguments");
 			}
 
 			if (pseudo_start >= 0) {
@@ -1332,7 +1332,7 @@ int od_main(int argc UNUSED_PARAM, char **argv)
 	if (option_mask32 & OPT_N) {
 		end_offset = n_bytes_to_skip + max_bytes_to_format;
 		if (end_offset < n_bytes_to_skip)
-			bb_error_msg_and_die("SKIP + SIZE is too large");
+			bb_simple_error_msg_and_die("SKIP + SIZE is too large");
 	}
 
 	if (G.n_specs == 0) {
@@ -1389,7 +1389,7 @@ int od_main(int argc UNUSED_PARAM, char **argv)
 		dump(n_bytes_to_skip, end_offset);
 
 	if (fclose(stdin))
-		bb_perror_msg_and_die(bb_msg_standard_input);
+		bb_simple_perror_msg_and_die(bb_msg_standard_input);
 
 	return G.exit_code;
 }

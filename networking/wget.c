@@ -25,6 +25,13 @@
 //config:	default y
 //config:	depends on WGET
 //config:
+//config:config FEATURE_WGET_FTP
+//config:	bool "Enable FTP protocol (+1k)"
+//config:	default y
+//config:	depends on WGET
+//config:	help
+//config:	To support FTPS, enable FEATURE_WGET_HTTPS as well.
+//config:
 //config:config FEATURE_WGET_AUTHENTICATION
 //config:	bool "Enable HTTP authentication"
 //config:	default y
@@ -48,12 +55,12 @@
 //config:
 //config:config FEATURE_WGET_HTTPS
 //config:	bool "Support HTTPS using internal TLS code"
-//it also enables FTPS support, but it's not well tested yet
 //config:	default y
 //config:	depends on WGET
 //config:	select TLS
 //config:	help
 //config:	wget will use internal TLS code to connect to https:// URLs.
+//config:	It also enables FTPS support, but it's not well tested yet.
 //config:	Note:
 //config:	On NOMMU machines, ssl_helper applet should be available
 //config:	in the $PATH for this to work. Make sure to select that applet.
@@ -91,6 +98,9 @@
 //config:	patches, but do want to waste bandwidth expaining how wrong
 //config:	it is, you will be ignored.
 //config:
+//config:	FEATURE_WGET_OPENSSL does implement TLS verification
+//config:	using the certificates available to OpenSSL.
+//config:
 //config:config FEATURE_WGET_OPENSSL
 //config:	bool "Try to connect to HTTPS using openssl"
 //config:	default y
@@ -115,6 +125,9 @@
 //config:	If openssl can't be executed, internal TLS code will be used
 //config:	(if you enabled it); if openssl can be executed but fails later,
 //config:	wget can't detect this, and download will fail.
+//config:
+//config:	By default TLS verification is performed, unless
+//config:	--no-check-certificate option is passed.
 
 //applet:IF_WGET(APPLET(wget, BB_DIR_USR_BIN, BB_SUID_DROP))
 
@@ -122,22 +135,26 @@
 
 //usage:#define wget_trivial_usage
 //usage:	IF_FEATURE_WGET_LONG_OPTIONS(
-//usage:       "[-c|--continue] [--spider] [-q|--quiet] [-O|--output-document FILE]\n"
-//usage:       "	[--header 'header: value'] [-Y|--proxy on/off] [-P DIR]\n"
+//usage:       "[-cqS] [--spider] [-O FILE] [-o LOGFILE] [--header STR]\n"
+//usage:       "	[--post-data STR | --post-file FILE] [-Y on/off]\n"
 /* Since we ignore these opts, we don't show them in --help */
-/* //usage:    "	[--no-check-certificate] [--no-cache] [--passive-ftp] [-t TRIES]" */
+/* //usage:    "	[--no-cache] [--passive-ftp] [-t TRIES]" */
 /* //usage:    "	[-nv] [-nc] [-nH] [-np]" */
-//usage:       "	[-S|--server-response] [-U|--user-agent AGENT]" IF_FEATURE_WGET_TIMEOUT(" [-T SEC]") " URL..."
+//usage:       "	"IF_FEATURE_WGET_OPENSSL("[--no-check-certificate] ")"[-P DIR] [-U AGENT]"IF_FEATURE_WGET_TIMEOUT(" [-T SEC]")" URL..."
 //usage:	)
 //usage:	IF_NOT_FEATURE_WGET_LONG_OPTIONS(
-//usage:       "[-cq] [-O FILE] [-Y on/off] [-P DIR] [-S] [-U AGENT]"
-//usage:			IF_FEATURE_WGET_TIMEOUT(" [-T SEC]") " URL..."
+//usage:       "[-cqS] [-O FILE] [-o LOGFILE] [-Y on/off] [-P DIR] [-U AGENT]"IF_FEATURE_WGET_TIMEOUT(" [-T SEC]")" URL..."
 //usage:	)
 //usage:#define wget_full_usage "\n\n"
 //usage:       "Retrieve files via HTTP or FTP\n"
 //usage:	IF_FEATURE_WGET_LONG_OPTIONS(
 //usage:     "\n	--spider	Only check URL existence: $? is 0 if exists"
-///////:     "\n	--no-check-certificate	Don't validate the server's certificate"
+//usage:     "\n	--header STR	Add STR (of form 'header: value') to headers"
+//usage:     "\n	--post-data STR	Send STR using POST method"
+//usage:     "\n	--post-file FILE	Send FILE using POST method"
+//usage:	IF_FEATURE_WGET_OPENSSL(
+//usage:     "\n	--no-check-certificate	Don't validate the server's certificate"
+//usage:	)
 //usage:	)
 //usage:     "\n	-c		Continue retrieval of aborted transfer"
 //usage:     "\n	-q		Quiet"
@@ -147,6 +164,7 @@
 //usage:     "\n	-T SEC		Network read timeout is SEC seconds"
 //usage:	)
 //usage:     "\n	-O FILE		Save to FILE ('-' for stdout)"
+//usage:     "\n	-o LOGFILE	Log messages to FILE"
 //usage:     "\n	-U STR		Use STR for User-Agent header"
 //usage:     "\n	-Y on/off	Use proxy"
 
@@ -166,6 +184,7 @@
 
 
 #define SSL_SUPPORTED (ENABLE_FEATURE_WGET_OPENSSL || ENABLE_FEATURE_WGET_HTTPS)
+#define FTPS_SUPPORTED (ENABLE_FEATURE_WGET_FTP && ENABLE_FEATURE_WGET_HTTPS)
 
 struct host_info {
 	char *allocated;
@@ -175,13 +194,15 @@ struct host_info {
 	char       *host;
 	int         port;
 };
-static const char P_FTP[] ALIGN1 = "ftp";
 static const char P_HTTP[] ALIGN1 = "http";
 #if SSL_SUPPORTED
-# if ENABLE_FEATURE_WGET_HTTPS
-static const char P_FTPS[] ALIGN1 = "ftps";
-# endif
 static const char P_HTTPS[] ALIGN1 = "https";
+#endif
+#if ENABLE_FEATURE_WGET_FTP
+static const char P_FTP[] ALIGN1 = "ftp";
+#endif
+#if FTPS_SUPPORTED
+static const char P_FTPS[] ALIGN1 = "ftps";
 #endif
 
 #if ENABLE_FEATURE_WGET_LONG_OPTIONS
@@ -190,29 +211,33 @@ enum {
 	HDR_HOST          = (1<<0),
 	HDR_USER_AGENT    = (1<<1),
 	HDR_RANGE         = (1<<2),
-	HDR_AUTH          = (1<<3) * ENABLE_FEATURE_WGET_AUTHENTICATION,
-	HDR_PROXY_AUTH    = (1<<4) * ENABLE_FEATURE_WGET_AUTHENTICATION,
+	HDR_CONTENT_TYPE  = (1<<3),
+	HDR_AUTH          = (1<<4) * ENABLE_FEATURE_WGET_AUTHENTICATION,
+	HDR_PROXY_AUTH    = (1<<5) * ENABLE_FEATURE_WGET_AUTHENTICATION,
 };
 static const char wget_user_headers[] ALIGN1 =
 	"Host:\0"
 	"User-Agent:\0"
 	"Range:\0"
+	"Content-Type:\0"
 # if ENABLE_FEATURE_WGET_AUTHENTICATION
 	"Authorization:\0"
 	"Proxy-Authorization:\0"
 # endif
 	;
-# define USR_HEADER_HOST       (G.user_headers & HDR_HOST)
-# define USR_HEADER_USER_AGENT (G.user_headers & HDR_USER_AGENT)
-# define USR_HEADER_RANGE      (G.user_headers & HDR_RANGE)
-# define USR_HEADER_AUTH       (G.user_headers & HDR_AUTH)
-# define USR_HEADER_PROXY_AUTH (G.user_headers & HDR_PROXY_AUTH)
+# define USR_HEADER_HOST         (G.user_headers & HDR_HOST)
+# define USR_HEADER_USER_AGENT   (G.user_headers & HDR_USER_AGENT)
+# define USR_HEADER_RANGE        (G.user_headers & HDR_RANGE)
+# define USR_HEADER_CONTENT_TYPE (G.user_headers & HDR_CONTENT_TYPE)
+# define USR_HEADER_AUTH         (G.user_headers & HDR_AUTH)
+# define USR_HEADER_PROXY_AUTH   (G.user_headers & HDR_PROXY_AUTH)
 #else /* No long options, no user-headers :( */
-# define USR_HEADER_HOST       0
-# define USR_HEADER_USER_AGENT 0
-# define USR_HEADER_RANGE      0
-# define USR_HEADER_AUTH       0
-# define USR_HEADER_PROXY_AUTH 0
+# define USR_HEADER_HOST         0
+# define USR_HEADER_USER_AGENT   0
+# define USR_HEADER_RANGE        0
+# define USR_HEADER_CONTENT_TYPE 0
+# define USR_HEADER_AUTH         0
+# define USR_HEADER_PROXY_AUTH   0
 #endif
 
 /* Globals */
@@ -227,13 +252,16 @@ struct globals {
 	char *dir_prefix;
 #if ENABLE_FEATURE_WGET_LONG_OPTIONS
 	char *post_data;
+	char *post_file;
 	char *extra_headers;
 	unsigned char user_headers; /* Headers mentioned by the user */
 #endif
 	char *fname_out;        /* where to direct output (-O) */
+	char *fname_log;        /* where to direct log (-o) */
 	const char *proxy_flag; /* Use proxies if env vars are set */
 	const char *user_agent; /* "User-Agent" header field */
 	int output_fd;
+	int log_fd;
 	int o_flags;
 #if ENABLE_FEATURE_WGET_TIMEOUT
 	unsigned timeout_seconds;
@@ -245,7 +273,7 @@ struct globals {
 	 * With 512 byte buffer, it was measured to be
 	 * an order of magnitude slower than with big one.
 	 */
-	char wget_buf[CONFIG_FEATURE_COPYBUF_KB*1024] ALIGNED(sizeof(long));
+	char wget_buf[CONFIG_FEATURE_COPYBUF_KB*1024] ALIGNED(16);
 } FIX_ALIASING;
 #define G (*ptr_to_globals)
 #define INIT_G() do { \
@@ -262,17 +290,23 @@ enum {
 	WGET_OPT_QUIET      = (1 << 1),
 	WGET_OPT_SERVER_RESPONSE = (1 << 2),
 	WGET_OPT_OUTNAME    = (1 << 3),
-	WGET_OPT_PREFIX     = (1 << 4),
-	WGET_OPT_PROXY      = (1 << 5),
-	WGET_OPT_USER_AGENT = (1 << 6),
-	WGET_OPT_NETWORK_READ_TIMEOUT = (1 << 7),
-	WGET_OPT_RETRIES    = (1 << 8),
-	WGET_OPT_nsomething = (1 << 9),
-	WGET_OPT_HEADER     = (1 << 10) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
-	WGET_OPT_POST_DATA  = (1 << 11) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
-	WGET_OPT_SPIDER     = (1 << 12) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
-	WGET_OPT_NO_CHECK_CERT = (1 << 13) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+	WGET_OPT_LOGNAME    = (1 << 4),
+	WGET_OPT_PREFIX     = (1 << 5),
+	WGET_OPT_PROXY      = (1 << 6),
+	WGET_OPT_USER_AGENT = (1 << 7),
+	WGET_OPT_NETWORK_READ_TIMEOUT = (1 << 8),
+	WGET_OPT_RETRIES    = (1 << 9),
+	WGET_OPT_nsomething = (1 << 10),
+	WGET_OPT_HEADER     = (1 << 11) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+	WGET_OPT_POST_DATA  = (1 << 12) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+	WGET_OPT_SPIDER     = (1 << 13) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+	WGET_OPT_NO_CHECK_CERT = (1 << 14) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+	WGET_OPT_POST_FILE  = (1 << 15) * ENABLE_FEATURE_WGET_LONG_OPTIONS,
+	/* hijack this bit for other than opts purposes: */
+	WGET_NO_FTRUNCATE   = (1 << 31)
 };
+
+#define WGET_OPT_POST (WGET_OPT_POST_DATA | WGET_OPT_POST_FILE)
 
 enum {
 	PROGRESS_START = -1,
@@ -285,6 +319,10 @@ static void progress_meter(int flag)
 	int notty;
 
 	if (option_mask32 & WGET_OPT_QUIET)
+		return;
+
+	/* Don't save progress to log file */
+	if (G.log_fd >= 0)
 		return;
 
 	if (flag == PROGRESS_START)
@@ -304,7 +342,7 @@ static void progress_meter(int flag)
 	}
 }
 #else
-static ALWAYS_INLINE void progress_meter(int flag UNUSED_PARAM) { }
+static ALWAYS_INLINE void progress_meter(int flag UNUSED_PARAM) {}
 #endif
 
 
@@ -360,7 +398,7 @@ static void alarm_handler(int sig UNUSED_PARAM)
 {
 	/* This is theoretically unsafe (uses stdio and malloc in signal handler) */
 	if (G.die_if_timed_out)
-		bb_error_msg_and_die("download timed out");
+		bb_simple_error_msg_and_die("download timed out");
 }
 static void set_alarm(void)
 {
@@ -380,9 +418,6 @@ static void set_alarm(void)
  * is_ip_address() attempts to verify whether or not a string
  * contains an IPv4 or IPv6 address (vs. an FQDN).  The result
  * of inet_pton() can be used to determine this.
- *
- * TODO add proper error checking when inet_pton() returns -1
- * (some form of system error has occurred, and errno is set)
  */
 static int is_ip_address(const char *string)
 {
@@ -447,7 +482,7 @@ static char fgets_trim_sanitize(FILE *fp, const char *fmt)
 
 	set_alarm();
 	if (fgets(G.wget_buf, sizeof(G.wget_buf), fp) == NULL)
-		bb_perror_msg_and_die("error getting response");
+		bb_simple_perror_msg_and_die("error getting response");
 	clear_alarm();
 
 	buf_ptr = strchrnul(G.wget_buf, '\n');
@@ -469,6 +504,7 @@ static char fgets_trim_sanitize(FILE *fp, const char *fmt)
 	return c;
 }
 
+#if ENABLE_FEATURE_WGET_FTP
 static int ftpcmd(const char *s1, const char *s2, FILE *fp)
 {
 	int result;
@@ -494,6 +530,7 @@ static int ftpcmd(const char *s1, const char *s2, FILE *fp)
 	G.wget_buf[3] = ' ';
 	return result;
 }
+#endif
 
 static void parse_url(const char *src_url, struct host_info *h)
 {
@@ -502,30 +539,31 @@ static void parse_url(const char *src_url, struct host_info *h)
 	free(h->allocated);
 	h->allocated = url = xstrdup(src_url);
 
-	h->protocol = P_FTP;
+	h->protocol = P_HTTP;
 	p = strstr(url, "://");
 	if (p) {
 		*p = '\0';
 		h->host = p + 3;
+#if ENABLE_FEATURE_WGET_FTP
 		if (strcmp(url, P_FTP) == 0) {
 			h->port = bb_lookup_std_port(P_FTP, "tcp", 21);
+			h->protocol = P_FTP;
 		} else
-#if SSL_SUPPORTED
-# if ENABLE_FEATURE_WGET_HTTPS
+#endif
+#if FTPS_SUPPORTED
 		if (strcmp(url, P_FTPS) == 0) {
 			h->port = bb_lookup_std_port(P_FTPS, "tcp", 990);
 			h->protocol = P_FTPS;
 		} else
-# endif
+#endif
+#if SSL_SUPPORTED
 		if (strcmp(url, P_HTTPS) == 0) {
 			h->port = bb_lookup_std_port(P_HTTPS, "tcp", 443);
 			h->protocol = P_HTTPS;
 		} else
 #endif
 		if (strcmp(url, P_HTTP) == 0) {
- http:
-			h->port = bb_lookup_std_port(P_HTTP, "tcp", 80);
-			h->protocol = P_HTTP;
+			goto http;
 		} else {
 			*p = ':';
 			bb_error_msg_and_die("not an http or ftp url: %s", url);
@@ -533,7 +571,8 @@ static void parse_url(const char *src_url, struct host_info *h)
 	} else {
 		// GNU wget is user-friendly and falls back to http://
 		h->host = url;
-		goto http;
+ http:
+		h->port = bb_lookup_std_port(P_HTTP, "tcp", 80);
 	}
 
 	// FYI:
@@ -628,7 +667,7 @@ static char *get_sanitized_hdr(FILE *fp)
 
 static void reset_beg_range_to_zero(void)
 {
-	bb_error_msg("restart failed");
+	bb_simple_error_msg("restart failed");
 	G.beg_range = 0;
 	xlseek(G.output_fd, 0, SEEK_SET);
 	/* Done at the end instead: */
@@ -646,7 +685,7 @@ static int spawn_https_helper_openssl(const char *host, unsigned port)
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp) != 0)
 		/* Kernel can have AF_UNIX support disabled */
-		bb_perror_msg_and_die("socketpair");
+		bb_simple_perror_msg_and_die("socketpair");
 
 	if (!strchr(host, ':'))
 		host = allocated = xasprintf("%s:%u", host, port);
@@ -657,7 +696,8 @@ static int spawn_https_helper_openssl(const char *host, unsigned port)
 	pid = xvfork();
 	if (pid == 0) {
 		/* Child */
-		char *argv[8];
+		char *argv[13];
+		char **argp;
 
 		close(sp[0]);
 		xmove_fd(sp[1], 0);
@@ -680,10 +720,25 @@ static int spawn_https_helper_openssl(const char *host, unsigned port)
 		 * TLS server_name (SNI) field are FQDNs (DNS hostnames).
 		 * IPv4 and IPv6 addresses, port numbers are not allowed.
 		 */
+		argp = &argv[5];
 		if (!is_ip_address(servername)) {
-			argv[5] = (char*)"-servername";
-			argv[6] = (char*)servername;
+			*argp++ = (char*)"-servername"; //[5]
+			*argp++ = (char*)servername;    //[6]
 		}
+		if (!(option_mask32 & WGET_OPT_NO_CHECK_CERT)) {
+			/* Abort on bad server certificate */
+			*argp++ = (char*)"-verify";              //[7]
+			*argp++ = (char*)"100";                  //[8]
+			*argp++ = (char*)"-verify_return_error"; //[9]
+			if (!is_ip_address(servername)) {
+				*argp++ = (char*)"-verify_hostname"; //[10]
+				*argp++ = (char*)servername;         //[11]
+			} else {
+				*argp++ = (char*)"-verify_ip"; //[10]
+				*argp++ = (char*)host;         //[11]
+			}
+		}
+		//[12] (or earlier) is NULL terminator
 
 		BB_EXECVP(argv[0], argv);
 		xmove_fd(3, 2);
@@ -719,7 +774,7 @@ static void spawn_ssl_client(const char *host, int network_fd, int flags)
 
 	if (!(option_mask32 & WGET_OPT_NO_CHECK_CERT)) {
 		option_mask32 |= WGET_OPT_NO_CHECK_CERT;
-		bb_error_msg("note: TLS certificate validation not implemented");
+		bb_simple_error_msg("note: TLS certificate validation not implemented");
 	}
 
 	servername = xstrdup(host);
@@ -728,7 +783,7 @@ static void spawn_ssl_client(const char *host, int network_fd, int flags)
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, sp) != 0)
 		/* Kernel can have AF_UNIX support disabled */
-		bb_perror_msg_and_die("socketpair");
+		bb_simple_perror_msg_and_die("socketpair");
 
 	fflush_all();
 	pid = BB_MMU ? xfork() : xvfork();
@@ -767,6 +822,7 @@ static void spawn_ssl_client(const char *host, int network_fd, int flags)
 }
 #endif
 
+#if ENABLE_FEATURE_WGET_FTP
 static FILE* prepare_ftp_session(FILE **dfpp, struct host_info *target, len_and_sockaddr *lsa)
 {
 	FILE *sfp;
@@ -774,13 +830,13 @@ static FILE* prepare_ftp_session(FILE **dfpp, struct host_info *target, len_and_
 	int port;
 
 	sfp = open_socket(lsa);
-#if ENABLE_FEATURE_WGET_HTTPS
+#if FTPS_SUPPORTED
 	if (target->protocol == P_FTPS)
 		spawn_ssl_client(target->host, fileno(sfp), TLSLOOP_EXIT_ON_LOCAL_EOF);
 #endif
 
 	if (ftpcmd(NULL, NULL, sfp) != 220)
-		bb_error_msg_and_die("%s", G.wget_buf);
+		bb_simple_error_msg_and_die(G.wget_buf);
 		/* note: ftpcmd() sanitizes G.wget_buf, ok to print */
 
 	/* Split username:password pair */
@@ -830,7 +886,7 @@ static FILE* prepare_ftp_session(FILE **dfpp, struct host_info *target, len_and_
 
 	*dfpp = open_socket(lsa);
 
-#if ENABLE_FEATURE_WGET_HTTPS
+#if FTPS_SUPPORTED
 	if (target->protocol == P_FTPS) {
 		/* "PROT P" enables encryption of data stream.
 		 * Without it (or with "PROT C"), data is sent unencrypted.
@@ -856,6 +912,7 @@ static FILE* prepare_ftp_session(FILE **dfpp, struct host_info *target, len_and_
 
 	return sfp;
 }
+#endif
 
 static void NOINLINE retrieve_file_data(FILE *dfp)
 {
@@ -868,6 +925,12 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
 	polldata.fd = fileno(dfp);
 	polldata.events = POLLIN | POLLPRI;
 #endif
+	if (!(option_mask32 & WGET_OPT_QUIET)) {
+		if (G.output_fd == 1)
+			fprintf(stderr, "writing to stdout\n");
+		else
+			fprintf(stderr, "saving to '%s'\n", G.fname_out);
+	}
 	progress_meter(PROGRESS_START);
 
 	if (G.chunked)
@@ -937,7 +1000,7 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
 			if (errno != EAGAIN) {
 				if (ferror(dfp)) {
 					progress_meter(PROGRESS_END);
-					bb_perror_msg_and_die(bb_msg_read_error);
+					bb_simple_perror_msg_and_die(bb_msg_read_error);
 				}
 				break; /* EOF, not error */
 			}
@@ -950,7 +1013,7 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
 # if ENABLE_FEATURE_WGET_TIMEOUT
 				if (second_cnt != 0 && --second_cnt == 0) {
 					progress_meter(PROGRESS_END);
-					bb_error_msg_and_die("download timed out");
+					bb_simple_error_msg_and_die("download timed out");
 				}
 # endif
 				/* We used to loop back to poll here,
@@ -998,6 +1061,15 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
 		 */
 	}
 
+	/* Draw full bar and free its resources */
+	G.chunked = 0;  /* makes it show 100% even for chunked download */
+	G.got_clen = 1; /* makes it show 100% even for download of (formerly) unknown size */
+	progress_meter(PROGRESS_END);
+	if (G.content_len != 0) {
+		bb_simple_perror_msg_and_die("connection closed prematurely");
+		/* GNU wget says "DATE TIME (NN MB/s) - Connection closed at byte NNN. Retrying." */
+	}
+
 	/* If -c failed, we restart from the beginning,
 	 * but we do not truncate file then, we do it only now, at the end.
 	 * This lets user to ^C if his 99% complete 10 GB file download
@@ -1005,14 +1077,21 @@ static void NOINLINE retrieve_file_data(FILE *dfp)
 	 */
 	{
 		off_t pos = lseek(G.output_fd, 0, SEEK_CUR);
-		if (pos != (off_t)-1)
-			ftruncate(G.output_fd, pos);
+		if (pos != (off_t)-1) {
+			/* do not truncate if -O- is in use, a user complained about
+			 * "wget -qO- 'http://example.com/empty' >>FILE" truncating FILE.
+			 */
+			if (!(option_mask32 & WGET_NO_FTRUNCATE))
+				ftruncate(G.output_fd, pos);
+		}
 	}
 
-	/* Draw full bar and free its resources */
-	G.chunked = 0;  /* makes it show 100% even for chunked download */
-	G.got_clen = 1; /* makes it show 100% even for download of (formerly) unknown size */
-	progress_meter(PROGRESS_END);
+	if (!(option_mask32 & WGET_OPT_QUIET)) {
+		if (G.output_fd == 1)
+			fprintf(stderr, "written to stdout\n");
+		else
+			fprintf(stderr, "'%s' saved\n", G.fname_out);
+	}
 }
 
 static void download_one_url(const char *url)
@@ -1087,7 +1166,7 @@ static void download_one_url(const char *url)
 		 * We are not sure it exists on remote side */
 	}
 
-	redir_limit = 5;
+	redir_limit = 16;
  resolve_lsa:
 	lsa = xhost2sockaddr(server.host, server.port);
 	if (!(option_mask32 & WGET_OPT_QUIET)) {
@@ -1146,7 +1225,7 @@ static void download_one_url(const char *url)
 				target.path);
 		} else {
 			SENDFMT(sfp, "%s /%s HTTP/1.1\r\n",
-				(option_mask32 & WGET_OPT_POST_DATA) ? "POST" : "GET",
+				(option_mask32 & WGET_OPT_POST) ? "POST" : "GET",
 				target.path);
 		}
 		if (!USR_HEADER_HOST)
@@ -1179,9 +1258,20 @@ static void download_one_url(const char *url)
 			fputs(G.extra_headers, sfp);
 		}
 
-		if (option_mask32 & WGET_OPT_POST_DATA) {
+		if (option_mask32 & WGET_OPT_POST_FILE) {
+			int fd = xopen_stdin(G.post_file);
+			G.post_data = xmalloc_read(fd, NULL);
+			close(fd);
+		}
+
+		if (G.post_data) {
+			/* If user did not override it... */
+			if (!USR_HEADER_CONTENT_TYPE) {
+				SENDFMT(sfp,
+					"Content-Type: application/x-www-form-urlencoded\r\n"
+				);
+			}
 			SENDFMT(sfp,
-				"Content-Type: application/x-www-form-urlencoded\r\n"
 				"Content-Length: %u\r\n"
 				"\r\n"
 				"%s",
@@ -1279,6 +1369,8 @@ However, in real world it was observed that some web servers
 		case 301:
 		case 302:
 		case 303:
+		case 307:
+		case 308:
 			break;
 
 		case 206: /* Partial Content */
@@ -1326,7 +1418,7 @@ However, in real world it was observed that some web servers
 			}
 			if (key == KEY_location && status >= 300) {
 				if (--redir_limit == 0)
-					bb_error_msg_and_die("too many redirections");
+					bb_simple_error_msg_and_die("too many redirections");
 				fclose(sfp);
 				if (str[0] == '/') {
 					free(redirected_path);
@@ -1356,10 +1448,12 @@ However, in real world it was observed that some web servers
 		/* For HTTP, data is pumped over the same connection */
 		dfp = sfp;
 	} else {
+#if ENABLE_FEATURE_WGET_FTP
 		/*
 		 *  FTP session
 		 */
 		sfp = prepare_ftp_session(&dfp, &target, lsa);
+#endif
 	}
 
 	free(lsa);
@@ -1372,8 +1466,12 @@ However, in real world it was observed that some web servers
 			xclose(G.output_fd);
 			G.output_fd = -1;
 		}
+	} else {
+		if (!(option_mask32 & WGET_OPT_QUIET))
+			fprintf(stderr, "remote file exists\n");
 	}
 
+#if ENABLE_FEATURE_WGET_FTP
 	if (dfp != sfp) {
 		/* It's ftp. Close data connection properly */
 		fclose(dfp);
@@ -1381,6 +1479,7 @@ However, in real world it was observed that some web servers
 			bb_error_msg_and_die("ftp error: %s", G.wget_buf);
 		/* ftpcmd("QUIT", NULL, sfp); - why bother? */
 	}
+#endif
 	fclose(sfp);
 
 	free(server.allocated);
@@ -1401,6 +1500,7 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
 		"quiet\0"            No_argument       "q"
 		"server-response\0"  No_argument       "S"
 		"output-document\0"  Required_argument "O"
+		"output-file\0"      Required_argument "o"
 		"directory-prefix\0" Required_argument "P"
 		"proxy\0"            Required_argument "Y"
 		"user-agent\0"       Required_argument "U"
@@ -1412,6 +1512,7 @@ IF_DESKTOP(	"tries\0"            Required_argument "t")
 		"post-data\0"        Required_argument "\xfe"
 		"spider\0"           No_argument       "\xfd"
 		"no-check-certificate\0" No_argument   "\xfc"
+		"post-file\0"        Required_argument "\xfb"
 		/* Ignored (we always use PASV): */
 IF_DESKTOP(	"passive-ftp\0"      No_argument       "\xf0")
 		/* Ignored (we don't support caching) */
@@ -1441,10 +1542,8 @@ IF_DESKTOP(	"no-parent\0"        No_argument       "\xf0")
 	G.proxy_flag = "on";   /* use proxies if env vars are set */
 	G.user_agent = "Wget"; /* "User-Agent" header field */
 
-#if ENABLE_FEATURE_WGET_LONG_OPTIONS
-#endif
 	GETOPT32(argv, "^"
-		"cqSO:P:Y:U:T:+"
+		"cqSO:o:P:Y:U:T:+"
 		/*ignored:*/ "t:"
 		/*ignored:*/ "n::"
 		/* wget has exactly four -n<letter> opts, all of which we can ignore:
@@ -1457,15 +1556,19 @@ IF_DESKTOP(	"no-parent\0"        No_argument       "\xf0")
 		 */
 		"\0"
 		"-1" /* at least one URL */
+		IF_FEATURE_WGET_LONG_OPTIONS(":\xfe--\xfb")
+		IF_FEATURE_WGET_LONG_OPTIONS(":\xfe--\xfe")
+		IF_FEATURE_WGET_LONG_OPTIONS(":\xfb--\xfb")
 		IF_FEATURE_WGET_LONG_OPTIONS(":\xff::") /* --header is a list */
 		LONGOPTS
-		, &G.fname_out, &G.dir_prefix,
+		, &G.fname_out, &G.fname_log, &G.dir_prefix,
 		&G.proxy_flag, &G.user_agent,
 		IF_FEATURE_WGET_TIMEOUT(&G.timeout_seconds) IF_NOT_FEATURE_WGET_TIMEOUT(NULL),
 		NULL, /* -t RETRIES */
 		NULL  /* -n[ARG] */
 		IF_FEATURE_WGET_LONG_OPTIONS(, &headers_llist)
 		IF_FEATURE_WGET_LONG_OPTIONS(, &G.post_data)
+		IF_FEATURE_WGET_LONG_OPTIONS(, &G.post_file)
 	);
 #if 0 /* option bits debug */
 	if (option_mask32 & WGET_OPT_RETRIES) bb_error_msg("-t NUM");
@@ -1474,6 +1577,7 @@ IF_DESKTOP(	"no-parent\0"        No_argument       "\xf0")
 	if (option_mask32 & WGET_OPT_POST_DATA) bb_error_msg("--post-data");
 	if (option_mask32 & WGET_OPT_SPIDER) bb_error_msg("--spider");
 	if (option_mask32 & WGET_OPT_NO_CHECK_CERT) bb_error_msg("--no-check-certificate");
+	if (option_mask32 & WGET_OPT_POST_FILE) bb_error_msg("--post-file");
 	exit(0);
 #endif
 	argv += optind;
@@ -1515,10 +1619,20 @@ IF_DESKTOP(	"no-parent\0"        No_argument       "\xf0")
 	if (G.fname_out) { /* -O FILE ? */
 		if (LONE_DASH(G.fname_out)) { /* -O - ? */
 			G.output_fd = 1;
-			option_mask32 &= ~WGET_OPT_CONTINUE;
+			option_mask32 = (option_mask32 & (~WGET_OPT_CONTINUE)) | WGET_NO_FTRUNCATE;
 		}
 		/* compat with wget: -O FILE can overwrite */
 		G.o_flags = O_WRONLY | O_CREAT | O_TRUNC;
+	}
+
+	G.log_fd = -1;
+	if (G.fname_log) { /* -o FILE ? */
+		if (!LONE_DASH(G.fname_log)) { /* not -o - ? */
+			/* compat with wget: -o FILE can overwrite */
+			G.log_fd = xopen(G.fname_log, O_WRONLY | O_CREAT | O_TRUNC);
+			/* Redirect only stderr to log file, so -O - will work */
+			xdup2(G.log_fd, STDERR_FILENO);
+		}
 	}
 
 	while (*argv)
@@ -1526,6 +1640,9 @@ IF_DESKTOP(	"no-parent\0"        No_argument       "\xf0")
 
 	if (G.output_fd >= 0)
 		xclose(G.output_fd);
+
+	if (G.log_fd >= 0)
+		xclose(G.log_fd);
 
 #if ENABLE_FEATURE_CLEAN_UP && ENABLE_FEATURE_WGET_LONG_OPTIONS
 	free(G.extra_headers);

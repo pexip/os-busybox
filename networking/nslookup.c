@@ -25,7 +25,7 @@
 //usage:#define nslookup_full_usage "\n\n"
 //usage:       "Query DNS about HOST"
 //usage:       IF_FEATURE_NSLOOKUP_BIG("\n")
-//usage:       IF_FEATURE_NSLOOKUP_BIG("\nQUERY_TYPE: soa,ns,a,"IF_FEATURE_IPV6("aaaa,")"cname,mx,txt,ptr,any")
+//usage:       IF_FEATURE_NSLOOKUP_BIG("\nQUERY_TYPE: soa,ns,a,"IF_FEATURE_IPV6("aaaa,")"cname,mx,txt,ptr,srv,any")
 //usage:#define nslookup_example_usage
 //usage:       "$ nslookup localhost\n"
 //usage:       "Server:     default\n"
@@ -257,7 +257,7 @@ int nslookup_main(int argc, char **argv)
 struct ns {
 	const char *name;
 	len_and_sockaddr *lsa;
-	int failures;
+	//UNUSED: int failures;
 	int replies;
 };
 
@@ -273,7 +273,7 @@ struct query {
 static const struct {
 	unsigned char type;
 	char name[7];
-} qtypes[] = {
+} qtypes[] ALIGN1 = {
 	{ ns_t_soa,   "SOA"   },
 	{ ns_t_ns,    "NS"    },
 	{ ns_t_a,     "A"     },
@@ -283,11 +283,12 @@ static const struct {
 	{ ns_t_cname, "CNAME" },
 	{ ns_t_mx,    "MX"    },
 	{ ns_t_txt,   "TXT"   },
+	{ ns_t_srv,   "SRV"   },
 	{ ns_t_ptr,   "PTR"   },
 	{ ns_t_any,   "ANY"   },
 };
 
-static const char *const rcodes[] = {
+static const char *const rcodes[] ALIGN_PTR = {
 	"NOERROR",    // 0
 	"FORMERR",    // 1
 	"SERVFAIL",   // 2
@@ -320,6 +321,7 @@ struct globals {
 	struct query *query;
 	char *search;
 	smalluint have_search_directive;
+	smalluint exitcode;
 } FIX_ALIASING;
 #define G (*(struct globals*)bb_common_bufsiz1)
 #define INIT_G() do { \
@@ -333,7 +335,7 @@ enum {
 	OPT_debug = (1 << 0),
 };
 
-static int parse_reply(const unsigned char *msg, size_t len)
+static NOINLINE int parse_reply(const unsigned char *msg, size_t len)
 {
 	HEADER *header;
 
@@ -347,6 +349,8 @@ static int parse_reply(const unsigned char *msg, size_t len)
 	header = (HEADER *)msg;
 	if (!header->aa)
 		printf("Non-authoritative answer:\n");
+	else if (option_mask32 & OPT_debug)
+		printf("Non-authoritative answer:\n" + 4);
 
 	if (ns_initparse(msg, len, &handle) != 0) {
 		//printf("Unable to parse reply: %s\n", strerror(errno));
@@ -379,7 +383,7 @@ static int parse_reply(const unsigned char *msg, size_t len)
 				return -1;
 			}
 			inet_ntop(AF_INET6, ns_rr_rdata(rr), astr, sizeof(astr));
-			/* bind-utils-9.11.3 uses the same format for A and AAAA answers */
+			/* bind-utils 9.11.3 uses the same format for A and AAAA answers */
 			printf("Name:\t%s\nAddress: %s\n", ns_rr_name(rr), astr);
 			break;
 #endif
@@ -432,6 +436,25 @@ static int parse_reply(const unsigned char *msg, size_t len)
 				memcpy(dname, ns_rr_rdata(rr) + 1, n);
 				printf("%s\ttext = \"%s\"\n", ns_rr_name(rr), dname);
 			}
+			break;
+
+		case ns_t_srv:
+			if (rdlen < 6) {
+				//printf("SRV record too short\n");
+				return -1;
+			}
+
+			cp = ns_rr_rdata(rr);
+			n = ns_name_uncompress(ns_msg_base(handle), ns_msg_end(handle),
+			                       cp + 6, dname, sizeof(dname));
+
+			if (n < 0) {
+				//printf("Unable to uncompress domain: %s\n", strerror(errno));
+				return -1;
+			}
+
+			printf("%s\tservice = %u %u %u %s\n", ns_rr_name(rr),
+				ns_get16(cp), ns_get16(cp + 2), ns_get16(cp + 4), dname);
 			break;
 
 		case ns_t_soa:
@@ -548,7 +571,7 @@ static int send_queries(struct ns *ns)
 
 		recvlen = read(pfd.fd, reply, sizeof(reply));
 		if (recvlen < 0) {
-			bb_perror_msg("read");
+			bb_simple_perror_msg("read");
  next:
 			tcur = monotonic_ms();
 			continue;
@@ -559,7 +582,7 @@ static int send_queries(struct ns *ns)
 			printf("Address:\t%s\n\n",
 				auto_string(xmalloc_sockaddr2dotted(&ns->lsa->u.sa))
 			);
-			/* In "Address", bind-utils-9.11.3 show port after a hash: "1.2.3.4#53" */
+			/* In "Address", bind-utils 9.11.3 show port after a hash: "1.2.3.4#53" */
 			/* Should we do the same? */
 		}
 
@@ -593,7 +616,7 @@ static int send_queries(struct ns *ns)
 
 		/* Retry immediately on SERVFAIL */
 		if (rcode == 2) {
-			ns->failures++;
+			//UNUSED: ns->failures++;
 			if (servfail_retry) {
 				servfail_retry--;
 				write(pfd.fd, G.query[qn].query, G.query[qn].qlen);
@@ -612,10 +635,33 @@ static int send_queries(struct ns *ns)
 		if (rcode != 0) {
 			printf("** server can't find %s: %s\n",
 					G.query[qn].name, rcodes[rcode]);
+			G.exitcode = EXIT_FAILURE;
 		} else {
-			if (parse_reply(reply, recvlen) < 0)
+			switch (parse_reply(reply, recvlen)) {
+			case -1:
 				printf("*** Can't find %s: Parse error\n", G.query[qn].name);
+				G.exitcode = EXIT_FAILURE;
+				break;
+			/* bind-utils 9.11.25 just says nothing in this case */
+			//case 0:
+			//	break;
+			}
 		}
+/* NB: in case of authoritative, empty answer (NODATA), IOW: one with
+ * ns_msg_count() == 0, bind-utils 9.11.25 shows no trace of this answer
+ * (unless -debug, where it says:
+ * ------------
+ *     QUESTIONS:
+ *     host.com, type = AAAA, class = IN
+ *     ANSWERS:
+ *     AUTHORITY RECORDS:
+ *     ADDITIONAL RECORDS:
+ * ------------
+ * ). Due to printing of below '\n', we do show an additional empty line.
+ * This is better than not showing any indication of this reply at all,
+ * yet maintains "compatibility". I wonder whether it's better to break compat
+ * and emit something more meaningful, e.g. print "Empty answer (NODATA)"?
+ */
 		bb_putchar('\n');
 		n_replies++;
 		if (n_replies >= G.query_count)
@@ -667,18 +713,19 @@ static void parse_resolvconf(void)
 {
 	FILE *resolv;
 
-	resolv = fopen("/etc/resolv.conf", "r");
+	resolv = fopen_for_read("/etc/resolv.conf");
 	if (resolv) {
 		char line[512];	/* "search" is defined to be up to 256 chars */
 
 		while (fgets(line, sizeof(line), resolv)) {
 			char *p, *arg;
+			char *tokstate;
 
-			p = strtok(line, " \t\n");
+			p = strtok_r(line, " \t\n", &tokstate);
 			if (!p)
 				continue;
 			dbg("resolv_key:'%s'\n", p);
-			arg = strtok(NULL, "\n");
+			arg = strtok_r(NULL, "\n", &tokstate);
 			dbg("resolv_arg:'%s'\n", arg);
 			if (!arg)
 				continue;
@@ -988,7 +1035,7 @@ int nslookup_main(int argc UNUSED_PARAM, char **argv)
 		free(G.query);
 	}
 
-	return EXIT_SUCCESS;
+	return G.exitcode;
 }
 
 #endif

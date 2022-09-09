@@ -35,7 +35,7 @@
 //kbuild:lib-$(CONFIG_SU) += su.o
 
 //usage:#define su_trivial_usage
-//usage:       "[-lmp] [-] [-s SH] [USER [SCRIPT ARGS / -c 'CMD' ARG0 ARGS]]"
+//usage:       "[-lmp] [-s SH] [-] [USER [FILE ARGS | -c 'CMD' [ARG0 ARGS]]]"
 //usage:#define su_full_usage "\n\n"
 //usage:       "Run shell under USER (by default, root)\n"
 //usage:     "\n	-,-l	Clear environment, go to home dir, run shell as login shell"
@@ -146,8 +146,8 @@ int su_main(int argc UNUSED_PARAM, char **argv)
 		if (ENABLE_FEATURE_SU_SYSLOG)
 			syslog(LOG_NOTICE, "%c %s %s:%s",
 				'-', tty, old_user, opt_username);
-		bb_do_delay(LOGIN_FAIL_DELAY);
-		bb_error_msg_and_die("incorrect password");
+		pause_after_failed_login();
+		bb_simple_error_msg_and_die("incorrect password");
 	}
 
 	if (ENABLE_FEATURE_CLEAN_UP && ENABLE_FEATURE_SU_SYSLOG) {
@@ -165,7 +165,7 @@ int su_main(int argc UNUSED_PARAM, char **argv)
 		 * probably a uucp account or has restricted access.  Don't
 		 * compromise the account by allowing access with a standard
 		 * shell.  */
-		bb_error_msg("using restricted shell");
+		bb_simple_error_msg("using restricted shell");
 		opt_shell = NULL; /* ignore -s PROG */
 	}
 	/* else: user can run whatever he wants via "su -s PROG USER".
@@ -204,7 +204,7 @@ int su_main(int argc UNUSED_PARAM, char **argv)
 	 */
 
 	/* Never returns */
-	run_shell(opt_shell, flags & SU_OPT_l, (const char**)argv);
+	exec_shell(opt_shell, flags & SU_OPT_l, (const char**)argv);
 
 	/* return EXIT_FAILURE; - not reached */
 }

@@ -487,7 +487,7 @@ static void add_split_dependencies(common_node_t *parent_node, const char *whole
 					} else if (strncmp(version, ">=", offset_ch) == 0) {
 						edge->operator = VER_MORE_EQUAL;
 					} else {
-						bb_error_msg_and_die("illegal operator");
+						bb_simple_error_msg_and_die("illegal operator");
 					}
 				}
 				/* skip to start of version numbers */
@@ -730,7 +730,7 @@ static void set_status(const unsigned status_node_num, const char *new_value, co
 			status = new_value_num;
 			break;
 		default:
-			bb_error_msg_and_die("DEBUG ONLY: this shouldnt happen");
+			bb_simple_error_msg_and_die("DEBUG ONLY: this shouldnt happen");
 	}
 
 	new_status = xasprintf("%s %s %s", name_hashtable[want], name_hashtable[flag], name_hashtable[status]);
@@ -944,10 +944,10 @@ static void write_status_file(deb_file_t **deb_file)
 	/* Create a separate backfile to dpkg */
 	if (rename("/var/lib/dpkg/status", "/var/lib/dpkg/status.udeb.bak") == -1) {
 		if (errno != ENOENT)
-			bb_error_msg_and_die("can't create backup status file");
+			bb_simple_error_msg_and_die("can't create backup status file");
 		/* Its ok if renaming the status file fails because status
 		 * file doesn't exist, maybe we are starting from scratch */
-		bb_error_msg("no status file found, creating new one");
+		bb_simple_error_msg("no status file found, creating new one");
 	}
 
 	xrename("/var/lib/dpkg/status.udeb", "/var/lib/dpkg/status");
@@ -1204,6 +1204,27 @@ static char **create_list(const char *filename)
 	return file_list;
 }
 
+/** This tests if the filename is an "important" directory, which might be symlinked.
+ *  Debians dpkg test if directories are used by other packages, this
+ *  implementation doesn't and would remove for ex. an lib -> usr/lib symlink.
+ */
+static int is_builtin_exclude(const char *name)
+{
+	if (*name++ != '/')
+		return 0;
+	if (index_in_strings(".\0" "etc\0" "opt\0" "srv\0" "var\0" "var/lib\0",
+			name) >= 0)
+		return 1;
+	if (is_prefixed_with(name, "usr/")) {
+		name += sizeof("usr/") - 1;
+		if (is_prefixed_with(name, "local/"))
+			name += sizeof("local/") - 1;
+	}
+
+	return index_in_strings("bin\0" "lib\0" "lib32\0" "lib64\0" "sbin\0",
+			name) >= 0;
+}
+
 /* maybe i should try and hook this into remove_file.c somehow */
 static int remove_file_array(char **remove_names, char **exclude_names)
 {
@@ -1215,6 +1236,8 @@ static int remove_file_array(char **remove_names, char **exclude_names)
 		return 0;
 	}
 	for (i = 0; remove_names[i] != NULL; i++) {
+		if (is_builtin_exclude(remove_names[i]))
+			continue;
 		if (exclude_names != NULL) {
 			for (j = 0; exclude_names[j] != NULL; j++) {
 				if (strcmp(remove_names[i], exclude_names[j]) == 0) {
@@ -1281,7 +1304,7 @@ postrm abort-install <old_version>
 postrm abort-upgrade <old_version>
 postrm disappear <overwriter> <version>
 */
-static const char *const all_control_files[] = {
+static const char *const all_control_files[] ALIGN_PTR = {
 	"preinst", "postinst", "prerm", "postrm",
 	"list", "md5sums", "shlibs", "conffiles",
 	"config", "templates"
@@ -1816,7 +1839,7 @@ int dpkg_main(int argc UNUSED_PARAM, char **argv)
 			init_archive_deb_control(archive_handle);
 			deb_file[deb_count]->control_file = deb_extract_control_file_to_buffer(archive_handle, control_list);
 			if (deb_file[deb_count]->control_file == NULL) {
-				bb_error_msg_and_die("can't extract control file");
+				bb_simple_error_msg_and_die("can't extract control file");
 			}
 			deb_file[deb_count]->filename = xstrdup(argv[0]);
 			package_num = fill_package_struct(deb_file[deb_count]->control_file);
@@ -1879,13 +1902,13 @@ int dpkg_main(int argc UNUSED_PARAM, char **argv)
 		argv++;
 	}
 	if (!deb_count)
-		bb_error_msg_and_die("no package files specified");
+		bb_simple_error_msg_and_die("no package files specified");
 	deb_file[deb_count] = NULL;
 
 	/* Check that the deb file arguments are installable */
 	if (!(opt & OPT_force_ignore_depends)) {
 		if (!check_deps(deb_file, 0 /*, deb_count*/)) {
-			bb_error_msg_and_die("dependency check failed");
+			bb_simple_error_msg_and_die("dependency check failed");
 		}
 	}
 

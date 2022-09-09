@@ -117,8 +117,8 @@
 //usage:     "\n	-c	Check sums against list in FILEs"
 //usage:     "\n	-s	Don't output anything, status code shows success"
 //usage:     "\n	-w	Warn about improperly formatted checksum lines"
-//usage:     "\n	-a BITS	224 (default), 256, 384, 512"
 //usage:	)
+//usage:     "\n	-a BITS	224 (default), 256, 384, 512"
 
 //FIXME: GNU coreutils 8.25 has no -s option, it has only these two long opts:
 // --quiet   don't print OK for each successfully verified file
@@ -300,7 +300,7 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 				}
 				if (filename_ptr == NULL) {
 					if (flags & FLAG_WARN) {
-						bb_error_msg("invalid format");
+						bb_simple_error_msg("invalid format");
 					}
 					count_failed++;
 					return_value = EXIT_FAILURE;

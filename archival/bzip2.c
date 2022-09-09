@@ -50,17 +50,19 @@
 //kbuild:lib-$(CONFIG_BZIP2) += bzip2.o
 
 //usage:#define bzip2_trivial_usage
-//usage:       "[OPTIONS] [FILE]..."
+//usage:       "[-cfk" IF_FEATURE_BZIP2_DECOMPRESS("dt") "123456789] [FILE]..."
 //usage:#define bzip2_full_usage "\n\n"
 //usage:       "Compress FILEs (or stdin) with bzip2 algorithm\n"
 //usage:     "\n	-1..9	Compression level"
 //usage:	IF_FEATURE_BZIP2_DECOMPRESS(
 //usage:     "\n	-d	Decompress"
-//usage:     "\n	-t	Test file integrity"
 //usage:	)
 //usage:     "\n	-c	Write to stdout"
 //usage:     "\n	-f	Force"
 //usage:     "\n	-k	Keep input files"
+//usage:	IF_FEATURE_BZIP2_DECOMPRESS(
+//usage:     "\n	-t	Test integrity"
+//usage:	)
 
 #include "libbb.h"
 #include "bb_archive.h"
@@ -145,7 +147,7 @@ IF_DESKTOP(long long) int bz_write(bz_stream *strm, void* rbuf, ssize_t rlen, vo
 			if (n2 != n) {
 				if (n2 >= 0)
 					errno = 0; /* prevent bogus error message */
-				bb_perror_msg(n2 >= 0 ? "short write" : bb_msg_write_error);
+				bb_simple_perror_msg(n2 >= 0 ? "short write" : bb_msg_write_error);
 				return -1;
 			}
 		}
@@ -187,7 +189,7 @@ IF_DESKTOP(long long) int FAST_FUNC compressStream(transformer_state_t *xstate U
 	while (1) {
 		count = full_read(STDIN_FILENO, rbuf, IOBUF_SIZE);
 		if (count < 0) {
-			bb_perror_msg(bb_msg_read_error);
+			bb_simple_perror_msg(bb_msg_read_error);
 			total = -1;
 			break;
 		}

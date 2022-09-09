@@ -18,7 +18,7 @@
 
 //applet:IF_ED(APPLET(ed, BB_DIR_BIN, BB_SUID_DROP))
 
-//usage:#define ed_trivial_usage "[FILE]"
+//usage:#define ed_trivial_usage "[-p PROMPT] [FILE]"
 //usage:#define ed_full_usage ""
 
 #include "libbb.h"
@@ -48,6 +48,7 @@ struct globals {
 	char *bufBase;
 	char *bufPtr;
 	char *fileName;
+	const char *prompt;
 	LINE lines;
 	smallint dirty;
 	int marks[26];
@@ -57,6 +58,7 @@ struct globals {
 #define bufBase            (G.bufBase           )
 #define bufPtr             (G.bufPtr            )
 #define fileName           (G.fileName          )
+#define prompt             (G.prompt            )
 #define curNum             (G.curNum            )
 #define lastNum            (G.lastNum           )
 #define bufUsed            (G.bufUsed           )
@@ -165,7 +167,7 @@ static NOINLINE int searchLines(const char *str, int num1, int num2)
 
 	if (*str == '\0') {
 		if (searchString[0] == '\0') {
-			bb_error_msg("no previous search string");
+			bb_simple_error_msg("no previous search string");
 			return 0;
 		}
 		str = searchString;
@@ -228,7 +230,7 @@ static const char* getNum(const char *cp, smallint *retHaveNum, int *retNum)
 			case '\'':
 				cp++;
 				if ((unsigned)(*cp - 'a') >= 26) {
-					bb_error_msg("bad mark name");
+					bb_simple_error_msg("bad mark name");
 					return NULL;
 				}
 				haveNum = TRUE;
@@ -314,7 +316,7 @@ static int insertLine(int num, const char *data, int len)
 	LINE *newLp, *lp;
 
 	if ((num < 1) || (num > lastNum + 1)) {
-		bb_error_msg("inserting at bad line number");
+		bb_simple_error_msg("inserting at bad line number");
 		return FALSE;
 	}
 
@@ -380,11 +382,12 @@ static void addLines(int num)
 static int readLines(const char *file, int num)
 {
 	int fd, cc;
-	int len, lineCount, charCount;
+	int len;
+	unsigned charCount;
 	char *cp;
 
 	if ((num < 1) || (num > lastNum + 1)) {
-		bb_error_msg("bad line for read");
+		bb_simple_error_msg("bad line for read");
 		return FALSE;
 	}
 
@@ -396,12 +399,8 @@ static int readLines(const char *file, int num)
 
 	bufPtr = bufBase;
 	bufUsed = 0;
-	lineCount = 0;
 	charCount = 0;
 	cc = 0;
-
-	printf("\"%s\", ", file);
-	fflush_all();
 
 	do {
 		cp = memchr(bufPtr, '\n', bufUsed);
@@ -415,7 +414,6 @@ static int readLines(const char *file, int num)
 			bufPtr += len;
 			bufUsed -= len;
 			charCount += len;
-			lineCount++;
 			num++;
 			continue;
 		}
@@ -449,15 +447,18 @@ static int readLines(const char *file, int num)
 			close(fd);
 			return -1;
 		}
-		lineCount++;
 		charCount += bufUsed;
 	}
 
 	close(fd);
 
-	printf("%d lines%s, %d chars\n", lineCount,
-		(bufUsed ? " (incomplete)" : ""), charCount);
-
+	/* https://pubs.opengroup.org/onlinepubs/9699919799/utilities/ed.html
+	 * "Read Command"
+	 * "...the number of bytes read shall be written to standard output
+	 * in the following format:
+	 * "%d\n", <number of bytes read>
+	 */
+	printf("%u\n", charCount);
 	return TRUE;
 }
 
@@ -468,12 +469,12 @@ static int readLines(const char *file, int num)
 static int writeLines(const char *file, int num1, int num2)
 {
 	LINE *lp;
-	int fd, lineCount, charCount;
+	int fd;
+	unsigned charCount;
 
 	if (bad_nums(num1, num2, "write"))
 		return FALSE;
 
-	lineCount = 0;
 	charCount = 0;
 
 	fd = creat(file, 0666);
@@ -481,9 +482,6 @@ static int writeLines(const char *file, int num1, int num2)
 		bb_simple_perror_msg(file);
 		return FALSE;
 	}
-
-	printf("\"%s\", ", file);
-	fflush_all();
 
 	lp = findLine(num1);
 	if (lp == NULL) {
@@ -498,7 +496,6 @@ static int writeLines(const char *file, int num1, int num2)
 			return FALSE;
 		}
 		charCount += lp->len;
-		lineCount++;
 		lp = lp->next;
 	}
 
@@ -507,7 +504,13 @@ static int writeLines(const char *file, int num1, int num2)
 		return FALSE;
 	}
 
-	printf("%d lines, %d chars\n", lineCount, charCount);
+	/* https://pubs.opengroup.org/onlinepubs/9699919799/utilities/ed.html
+	 * "Write Command"
+	 * "...the number of bytes written shall be written to standard output,
+	 * unless the -s option was specified, in the following format:
+	 * "%d\n", <number of bytes written>
+	 */
+	printf("%u\n", charCount);
 	return TRUE;
 }
 
@@ -553,7 +556,7 @@ static int printLines(int num1, int num2, int expandFlag)
 			fputc_printable(ch | PRINTABLE_META, stdout);
 		}
 
-		fputs("$\n", stdout);
+		fputs_stdout("$\n");
 
 		setCurNum(num1++);
 		lp = lp->next;
@@ -629,7 +632,7 @@ static void subCommand(const char *cmd, int num1, int num2)
 	cp = buf;
 
 	if (isblank(*cp) || (*cp == '\0')) {
-		bb_error_msg("bad delimiter for substitute");
+		bb_simple_error_msg("bad delimiter for substitute");
 		return;
 	}
 
@@ -638,7 +641,7 @@ static void subCommand(const char *cmd, int num1, int num2)
 
 	cp = strchr(cp, delim);
 	if (cp == NULL) {
-		bb_error_msg("missing 2nd delimiter for substitute");
+		bb_simple_error_msg("missing 2nd delimiter for substitute");
 		return;
 	}
 
@@ -660,13 +663,13 @@ static void subCommand(const char *cmd, int num1, int num2)
 			printFlag = TRUE;
 			break;
 		default:
-			bb_error_msg("unknown option for substitute");
+			bb_simple_error_msg("unknown option for substitute");
 			return;
 	}
 
 	if (*oldStr == '\0') {
 		if (searchString[0] == '\0') {
-			bb_error_msg("no previous search string");
+			bb_simple_error_msg("no previous search string");
 			return;
 		}
 		oldStr = searchString;
@@ -789,7 +792,7 @@ static void doCommands(void)
 		 * 0  on ctrl-C,
 		 * >0 length of input string, including terminating '\n'
 		 */
-		len = read_line_input(NULL, ": ", buf, sizeof(buf));
+		len = read_line_input(NULL, prompt, buf, sizeof(buf));
 		if (len <= 0)
 			return;
 		while (len && isspace(buf[--len]))
@@ -846,7 +849,7 @@ static void doCommands(void)
 
 		case 'f':
 			if (*cp != '\0' && *cp != ' ') {
-				bb_error_msg("bad file command");
+				bb_simple_error_msg("bad file command");
 				break;
 			}
 			cp = skip_whitespace(cp);
@@ -870,7 +873,7 @@ static void doCommands(void)
 		case 'k':
 			cp = skip_whitespace(cp);
 			if ((unsigned)(*cp - 'a') >= 26 || cp[1]) {
-				bb_error_msg("bad mark name");
+				bb_simple_error_msg("bad mark name");
 				break;
 			}
 			marks[(unsigned)(*cp - 'a')] = num2;
@@ -887,7 +890,7 @@ static void doCommands(void)
 		case 'q':
 			cp = skip_whitespace(cp);
 			if (have1 || *cp) {
-				bb_error_msg("bad quit command");
+				bb_simple_error_msg("bad quit command");
 				break;
 			}
 			if (!dirty)
@@ -903,12 +906,12 @@ static void doCommands(void)
 
 		case 'r':
 			if (*cp != '\0' && *cp != ' ') {
-				bb_error_msg("bad read command");
+				bb_simple_error_msg("bad read command");
 				break;
 			}
 			cp = skip_whitespace(cp);
 			if (*cp == '\0') {
-				bb_error_msg("no file name");
+				bb_simple_error_msg("no file name");
 				break;
 			}
 			if (!have1)
@@ -925,14 +928,14 @@ static void doCommands(void)
 
 		case 'w':
 			if (*cp != '\0' && *cp != ' ') {
-				bb_error_msg("bad write command");
+				bb_simple_error_msg("bad write command");
 				break;
 			}
 			cp = skip_whitespace(cp);
 			if (*cp == '\0') {
 				cp = fileName;
 				if (!cp) {
-					bb_error_msg("no file name specified");
+					bb_simple_error_msg("no file name specified");
 					break;
 				}
 			}
@@ -960,7 +963,7 @@ static void doCommands(void)
 
 		case '.':
 			if (have1) {
-				bb_error_msg("no arguments allowed");
+				bb_simple_error_msg("no arguments allowed");
 				break;
 			}
 			printLines(curNum, curNum, FALSE);
@@ -984,7 +987,7 @@ static void doCommands(void)
 			break;
 
 		default:
-			bb_error_msg("unimplemented command");
+			bb_simple_error_msg("unimplemented command");
 			break;
 		}
 	}
@@ -1001,13 +1004,15 @@ int ed_main(int argc UNUSED_PARAM, char **argv)
 	lines.next = &lines;
 	lines.prev = &lines;
 
-	if (argv[1]) {
-		fileName = xstrdup(argv[1]);
+	prompt = ""; /* no prompt by default */
+	getopt32(argv, "p:", &prompt);
+	argv += optind;
+
+	if (argv[0]) {
+		fileName = xstrdup(argv[0]);
 		if (!readLines(fileName, 1)) {
 			return EXIT_SUCCESS;
 		}
-		if (lastNum)
-			setCurNum(1);
 		dirty = FALSE;
 	}
 

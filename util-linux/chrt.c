@@ -17,16 +17,16 @@
 //kbuild:lib-$(CONFIG_CHRT) += chrt.o
 
 //usage:#define chrt_trivial_usage
-//usage:       "[-prfombi] [PRIO] [PID | PROG ARGS]"
+//usage:       "-m | -p [PRIO] PID | [-rfobi] PRIO PROG ARGS"
 //usage:#define chrt_full_usage "\n\n"
 //usage:       "Change scheduling priority and class for a process\n"
+//usage:     "\n	-m	Show min/max priorities"
 //usage:     "\n	-p	Operate on PID"
 //usage:     "\n	-r	Set SCHED_RR class"
 //usage:     "\n	-f	Set SCHED_FIFO class"
 //usage:     "\n	-o	Set SCHED_OTHER class"
 //usage:     "\n	-b	Set SCHED_BATCH class"
 //usage:     "\n	-i	Set SCHED_IDLE class"
-//usage:     "\n	-m	Show min/max priorities"
 //usage:
 //usage:#define chrt_example_usage
 //usage:       "$ chrt -r 4 sleep 900; x=$!\n"
@@ -39,28 +39,43 @@
 # define SCHED_IDLE 5
 #endif
 
-static const struct {
-	char name[sizeof("SCHED_OTHER")];
-} policies[] = {
-	{ "SCHED_OTHER" }, /* 0:SCHED_OTHER */
-	{ "SCHED_FIFO" },  /* 1:SCHED_FIFO */
-	{ "SCHED_RR" },    /* 2:SCHED_RR */
-	{ "SCHED_BATCH" }, /* 3:SCHED_BATCH */
-	{ "" },            /* 4:SCHED_ISO */
-	{ "SCHED_IDLE" },  /* 5:SCHED_IDLE */
-	/* 6:SCHED_DEADLINE */
-};
+//musl has no __MUSL__ or similar define to check for,
+//but its <sys/types.h> has these lines:
+// #define __NEED_fsblkcnt_t
+// #define __NEED_fsfilcnt_t
+#if defined(__linux__) && defined(__NEED_fsblkcnt_t) && defined(__NEED_fsfilcnt_t)
+# define LIBC_IS_MUSL 1
+# include <sys/syscall.h>
+#else
+# define LIBC_IS_MUSL 0
+#endif
+
+static const char *policy_name(int pol)
+{
+	if (pol > 6)
+		return utoa(pol);
+	return nth_string(
+		"OTHER"   "\0" /* 0:SCHED_OTHER */
+		"FIFO"    "\0" /* 1:SCHED_FIFO */
+		"RR"      "\0" /* 2:SCHED_RR */
+		"BATCH"   "\0" /* 3:SCHED_BATCH */
+		"ISO"     "\0" /* 4:SCHED_ISO */
+		"IDLE"    "\0" /* 5:SCHED_IDLE */
+		"DEADLINE",    /* 6:SCHED_DEADLINE */
+		pol
+	);
+}
 
 static void show_min_max(int pol)
 {
-	const char *fmt = "%s min/max priority\t: %u/%u\n";
+	const char *fmt = "SCHED_%s min/max priority\t: %u/%u\n";
 	int max, min;
 
 	max = sched_get_priority_max(pol);
 	min = sched_get_priority_min(pol);
 	if ((max|min) < 0)
-		fmt = "%s not supported\n";
-	printf(fmt, policies[pol].name, min, max);
+		fmt = "SCHED_%s not supported\n";
+	printf(fmt, policy_name(pol), min, max);
 }
 
 #define OPT_m (1<<0)
@@ -78,9 +93,10 @@ int chrt_main(int argc UNUSED_PARAM, char **argv)
 	unsigned opt;
 	struct sched_param sp;
 	char *pid_str;
-	char *priority = priority; /* for compiler */
+	char *priority = NULL;
 	const char *current_new;
 	int policy = SCHED_RR;
+	int ret;
 
 	opt = getopt32(argv, "^"
 			"+" "mprfobi"
@@ -112,11 +128,11 @@ int chrt_main(int argc UNUSED_PARAM, char **argv)
 		bb_show_usage();
 	if (opt & OPT_p) {
 		pid_str = *argv++;
-		if (*argv) { /* "-p <priority> <pid> [...]" */
+		if (*argv) { /* "-p PRIO PID [...]" */
 			priority = pid_str;
 			pid_str = *argv;
 		}
-		/* else "-p <pid>", and *argv == NULL */
+		/* else "-p PID", and *argv == NULL */
 		pid = xatoul_range(pid_str, 1, ((unsigned)(pid_t)ULONG_MAX) >> 1);
 	} else {
 		priority = *argv++;
@@ -128,18 +144,44 @@ int chrt_main(int argc UNUSED_PARAM, char **argv)
 	if (opt & OPT_p) {
 		int pol;
  print_rt_info:
+#if LIBC_IS_MUSL
+		/* musl libc returns ENOSYS for its sched_getscheduler library
+		 * function, because the sched_getscheduler Linux kernel system call
+		 * does not conform to Posix; so we use the system call directly
+		 */
+		pol = syscall(SYS_sched_getscheduler, pid);
+#else
 		pol = sched_getscheduler(pid);
+#endif
 		if (pol < 0)
-			bb_perror_msg_and_die("can't %cet pid %d's policy", 'g', (int)pid);
-		printf("pid %d's %s scheduling policy: %s\n",
-				pid, current_new, policies[pol].name);
-		if (sched_getparam(pid, &sp))
-			bb_perror_msg_and_die("can't get pid %d's attributes", (int)pid);
-		printf("pid %d's %s scheduling priority: %d\n",
-				(int)pid, current_new, sp.sched_priority);
+			bb_perror_msg_and_die("can't %cet pid %u's policy", 'g', (int)pid);
+#ifdef SCHED_RESET_ON_FORK
+		/* "Since Linux 2.6.32, the SCHED_RESET_ON_FORK flag
+		 * can be ORed in policy when calling sched_setscheduler().
+		 * As a result of including this flag, children created by
+		 * fork(2) do not inherit privileged scheduling policies"
+		 *
+		 * This bit is also returned by sched_getscheduler()!
+		 * (TODO: do we want to show it?)
+		 */
+		pol &= ~SCHED_RESET_ON_FORK;
+#endif
+		printf("pid %u's %s scheduling policy: SCHED_%s\n",
+			pid, current_new, policy_name(pol)
+		);
+#if LIBC_IS_MUSL
+		ret = syscall(SYS_sched_getparam, pid, &sp);
+#else
+		ret = sched_getparam(pid, &sp);
+#endif
+		if (ret)
+			bb_perror_msg_and_die("can't get pid %u's attributes", (int)pid);
+		printf("pid %u's %s scheduling priority: %d\n",
+			(int)pid, current_new, sp.sched_priority
+		);
 		if (!*argv) {
-			/* Either it was just "-p <pid>",
-			 * or it was "-p <priority> <pid>" and we came here
+			/* Either it was just "-p PID",
+			 * or it was "-p PRIO PID" and we came here
 			 * for the second time (see goto below) */
 			return EXIT_SUCCESS;
 		}
@@ -151,10 +193,15 @@ int chrt_main(int argc UNUSED_PARAM, char **argv)
 		sched_get_priority_min(policy), sched_get_priority_max(policy)
 	);
 
-	if (sched_setscheduler(pid, policy, &sp) < 0)
-		bb_perror_msg_and_die("can't %cet pid %d's policy", 's', (int)pid);
+#if LIBC_IS_MUSL
+	ret = syscall(SYS_sched_setscheduler, pid, policy, &sp);
+#else
+	ret = sched_setscheduler(pid, policy, &sp);
+#endif
+	if (ret)
+		bb_perror_msg_and_die("can't %cet pid %u's policy", 's', (int)pid);
 
-	if (!argv[0]) /* "-p <priority> <pid> [...]" */
+	if (!argv[0]) /* "-p PRIO PID [...]" */
 		goto print_rt_info;
 
 	BB_EXECVP_or_die(argv);

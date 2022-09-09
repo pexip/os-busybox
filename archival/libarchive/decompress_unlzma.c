@@ -59,7 +59,7 @@ static void rc_read(rc_t *rc)
 //TODO: return -1 instead
 //This will make unlzma delete broken unpacked file on unpack errors
 	if (buffer_size <= 0)
-		bb_error_msg_and_die("unexpected EOF");
+		bb_simple_error_msg_and_die("unexpected EOF");
 	rc->buffer_end = RC_BUFFER + buffer_size;
 	rc->ptr = RC_BUFFER;
 }
@@ -234,7 +234,7 @@ unpack_lzma_stream(transformer_state_t *xstate)
 	if (full_read(xstate->src_fd, &header, sizeof(header)) != sizeof(header)
 	 || header.pos >= (9 * 5 * 5)
 	) {
-		bb_error_msg("bad lzma header");
+		bb_simple_error_msg("bad lzma header");
 		return -1;
 	}
 
@@ -290,8 +290,11 @@ unpack_lzma_stream(transformer_state_t *xstate)
 				uint32_t pos;
 
 				pos = buffer_pos - rep0;
-				if ((int32_t)pos < 0)
+				if ((int32_t)pos < 0) {
 					pos += header.dict_size;
+					if ((int32_t)pos < 0)
+						goto bad;
+				}
 				match_byte = buffer[pos];
 				do {
 					int bit;
@@ -513,7 +516,7 @@ unpack_lzma_stream(transformer_state_t *xstate)
 			 * potentially more detailed information).
 			 * Do not fail silently.
 			 */
-			bb_error_msg("corrupted data");
+			bb_simple_error_msg("corrupted data");
 			total_written = -1; /* failure */
 		}
 		rc_free(rc);

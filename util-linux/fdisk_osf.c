@@ -144,7 +144,7 @@ struct xbsd_disklabel {
 #define BSD_DSTYPE_DOSPART(s)   ((s) & 3)       /* dos partition number */
 #define BSD_DSTYPE_GEOMETRY     0x10            /* drive params in label */
 
-static const char *const xbsd_dktypenames[] = {
+static const char *const xbsd_dktypenames[] ALIGN_PTR = {
 	"unknown",
 	"SMD",
 	"MSCP",
@@ -190,7 +190,7 @@ static const char *const xbsd_dktypenames[] = {
 #define BSD_FS_MSDOS    8               /* MS-DOS file system */
 #endif
 
-static const char *const xbsd_fstypes[] = {
+static const char *const xbsd_fstypes[] ALIGN_PTR = {
 	"\x00" "unused",            /* BSD_FS_UNUSED  */
 	"\x01" "swap",              /* BSD_FS_SWAP    */
 	"\x02" "Version 6",         /* BSD_FS_V6      */
@@ -470,7 +470,7 @@ xbsd_new_part(void)
 	end = xbsd_dlabel.d_secperunit - 1;
 #endif
 
-	snprintf(mesg, sizeof(mesg), "First %s", str_units(SINGULAR));
+	snprintf(mesg, sizeof(mesg), "First %s", str_units());
 	begin = read_int(bsd_cround(begin), bsd_cround(begin), bsd_cround(end),
 		0, mesg);
 
@@ -478,7 +478,7 @@ xbsd_new_part(void)
 		begin = (begin - 1) * xbsd_dlabel.d_secpercyl;
 
 	snprintf(mesg, sizeof(mesg), "Last %s or +size or +sizeM or +sizeK",
-		str_units(SINGULAR));
+		str_units());
 	end = read_int(bsd_cround(begin), bsd_cround(end), bsd_cround(end),
 		bsd_cround(begin), mesg);
 
