@@ -35,6 +35,31 @@ Description: Tiny utilities for small and embedded systems
  can be used in the system by installing the busybox-syslogd,
  busybox-udhcpc or busybox-udhcpd packages.
 
+Package: busybox-links
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Conflicts: bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
+ findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,
+ ncurses-bin, sed, sysvinit-utils, tzdata, util-linux
+Replaces: bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
+ findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,
+ ncurses-bin, sed, sysvinit-utils, tzdata, util-linux
+Provides: awk
+Description: Tiny utilities for small and embedded systems (links)
+ BusyBox combines tiny versions of many common UNIX utilities into a single
+ small executable. It provides minimalist replacements for the most common
+ utilities you would usually find on your desktop system (i.e., ls, cp, mv,
+ mount, tar, etc.). The utilities in BusyBox generally have fewer options than
+ their full-featured GNU cousins; however, the options that are included
+ provide the expected functionality and behave very much like their GNU
+ counterparts.
+ .
+ This package installs a set of symlinks which replace normal system utilities
+ to the busybox package.
+ .
+ DO NOT INSTALL THIS PACKAGE ON A NORMAL SYSTEM UNLESS YOU WANT TO NEED
+ TO PUT THE PIECE BACK TOGETHER
+
 Package: busybox-static
 Architecture: any
 Built-Using: ${built-using}
