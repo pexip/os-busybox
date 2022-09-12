@@ -1,3 +1,4 @@
+/bin/busybox /bin/bash
 /bin/busybox /bin/cat
 /bin/busybox /bin/chgrp
 /bin/busybox /bin/chmod
@@ -21,12 +22,14 @@
 /bin/busybox /bin/ls
 /bin/busybox /bin/mkdir
 /bin/busybox /bin/mknod
+/bin/busybox /bin/mktemp
 /bin/busybox /bin/more
 /bin/busybox /bin/mount
 /bin/busybox /bin/mv
 /bin/busybox /bin/pager
 /bin/busybox /bin/pidof
 /bin/busybox /bin/pwd
+/bin/busybox /bin/readlink
 /bin/busybox /bin/rm
 /bin/busybox /bin/rmdir
 /bin/busybox /bin/sed
@@ -39,6 +42,7 @@
 /bin/busybox /bin/umount
 /bin/busybox /bin/uname
 /bin/busybox /bin/uncompress
+/bin/busybox /bin/vdir
 /bin/busybox /bin/zcat
 /bin/busybox /sbin/blkdiscard
 /bin/busybox /sbin/fsfreeze
@@ -54,6 +58,7 @@
 /bin/busybox /usr/bin/[
 /bin/busybox /usr/bin/arch
 /bin/busybox /usr/bin/awk
+/bin/busybox /usr/bin/base64
 /bin/busybox /usr/bin/basename
 /bin/busybox /usr/bin/clear
 /bin/busybox /usr/bin/cut
@@ -72,6 +77,7 @@
 /bin/busybox /usr/bin/head
 /bin/busybox /usr/bin/hostid
 /bin/busybox /usr/bin/id
+/bin/busybox /usr/bin/install
 /bin/busybox /usr/bin/ionice
 /bin/busybox /usr/bin/last
 /bin/busybox /usr/bin/link
@@ -99,6 +105,7 @@
 /bin/busybox /usr/bin/sha512sum
 /bin/busybox /usr/bin/shred
 /bin/busybox /usr/bin/shuf
+/bin/busybox /usr/bin/sort
 /bin/busybox /usr/bin/stat
 /bin/busybox /usr/bin/tac
 /bin/busybox /usr/bin/tail

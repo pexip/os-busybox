@@ -37,7 +37,7 @@ Description: Tiny utilities for small and embedded systems
 
 Package: busybox-links
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}, busybox | busybox-static
 Conflicts: bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
  findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,
  ncurses-bin, sed, sysvinit-utils, tzdata, util-linux
@@ -55,7 +55,8 @@ Description: Tiny utilities for small and embedded systems (links)
  counterparts.
  .
  This package installs a set of symlinks which replace normal system utilities
- to the busybox package.
+ to the busybox package.  It is designed for use when building minimal
+ containers.
  .
  DO NOT INSTALL THIS PACKAGE ON A NORMAL SYSTEM UNLESS YOU WANT TO NEED
  TO PUT THE PIECE BACK TOGETHER
