@@ -36,7 +36,7 @@ Description: Tiny utilities for small and embedded systems
 Package: busybox-static
 Architecture: any
 Built-Using: ${built-using}
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}
 Conflicts: busybox
 Replaces: busybox
 Provides: busybox
@@ -110,6 +110,7 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
  ${misc:Depends},
+Multi-Arch: same
 Description: Provides the busybox DHCP client implementation
  Busybox contains a very small yet fully functional RFC compliant DHCP
  client formerly known as udhcpc.

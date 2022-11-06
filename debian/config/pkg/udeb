@@ -3,6 +3,7 @@
 # Busybox version: 1.35.0
 #
 CONFIG_HAVE_DOT_CONFIG=y
+CONFIG_PLATFORM_LINUX=y
 
 #
 # Settings
