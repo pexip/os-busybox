@@ -61,6 +61,7 @@
 /bin/busybox /usr/bin/base64
 /bin/busybox /usr/bin/basename
 /bin/busybox /usr/bin/clear
+/bin/busybox /usr/bin/cmp
 /bin/busybox /usr/bin/cut
 /bin/busybox /usr/bin/diff
 /bin/busybox /usr/bin/dirname

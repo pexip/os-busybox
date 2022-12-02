@@ -1,3 +1,9 @@
+busybox (1:1.35.0-2pexip5) pexip; urgency=medium
+
+  * Link cmp
+
+ -- Huw Jones <huw@pexip.com>  Fri, 02 Dec 2022 15:44:44 +0000
+
 busybox (1:1.35.0-2pexip4) pexip; urgency=medium
 
   * Rebuild to move busybox-links to main
