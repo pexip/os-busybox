@@ -4,6 +4,7 @@
 /bin/busybox /bin/chmod
 /bin/busybox /bin/chown
 /bin/busybox /bin/cp
+/bin/busybox /bin/dash
 /bin/busybox /bin/date
 /bin/busybox /bin/dd
 /bin/busybox /bin/df

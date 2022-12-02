@@ -17,3 +17,4 @@ readlink-em-options.patch
 sort-long-options.patch
 
 add-pager-to-more.patch
+ash-is-dash.patch

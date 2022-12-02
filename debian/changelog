@@ -3,6 +3,7 @@ busybox (1:1.35.0-2pexip6) pexip; urgency=medium
   * Provide bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
     findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,
     ncurses-bin, sed, sysvinit-utils, tzdata, util-linux
+  * Overload IF_BASH_IS_ASH to apply to dash too
 
  -- Huw Jones <huw@pexip.com>  Fri, 02 Dec 2022 16:17:04 +0000
 

@@ -1,0 +1,10 @@
+--- a/shell/ash.c
++++ b/shell/ash.c
+@@ -159,6 +159,7 @@
+ //                      APPLET_ODDNAME:name  main location    suid_type     help
+ //applet:IF_SH_IS_ASH(  APPLET_ODDNAME(sh,   ash, BB_DIR_BIN, BB_SUID_DROP, ash))
+ //applet:IF_BASH_IS_ASH(APPLET_ODDNAME(bash, ash, BB_DIR_BIN, BB_SUID_DROP, ash))
++//applet:IF_BASH_IS_ASH(APPLET_ODDNAME(dash, ash, BB_DIR_BIN, BB_SUID_DROP, ash))
+ 
+ //kbuild:lib-$(CONFIG_SHELL_ASH) += ash.o ash_ptr_hack.o shell_common.o
+ //kbuild:lib-$(CONFIG_ASH_RANDOM_SUPPORT) += random.o
