@@ -37,6 +37,7 @@ Description: Tiny utilities for small and embedded systems
 
 Package: busybox-links
 Architecture: any
+Priority: important
 Depends: ${misc:Depends}, ${shlibs:Depends}, busybox | busybox-static
 Conflicts: bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
  findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,

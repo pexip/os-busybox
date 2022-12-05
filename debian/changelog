@@ -1,3 +1,9 @@
+busybox (1:1.35.0-2pexip7) pexip; urgency=medium
+
+  * make busybox-links important
+
+ -- Huw Jones <huw@pexip.com>  Mon, 05 Dec 2022 16:22:34 +0000
+
 busybox (1:1.35.0-2pexip6) pexip; urgency=medium
 
   * Provide bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
