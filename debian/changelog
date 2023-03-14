@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4pexip1) pexip; urgency=medium
+
+  * New upstream release
+
+ -- Huw Jones <huw@pexip.com>  Tue, 14 Mar 2023 17:31:29 +0000
+
 busybox (1:1.35.0-4) unstable; urgency=medium
 
   * static build: disable blkid applet (CONFIG_BLKID, #1023501)
