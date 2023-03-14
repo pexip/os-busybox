@@ -11,6 +11,9 @@ revert-9c143ce52da11ec3d21a3491c3749841d3dc10f0.patch
 temp-deb-installer-hack.patch
 install-readlink-in-bin.patch
 spelling.diff
+platform-linux.diff
+fix-non-linux-build.patch
+use-libresolv-on-non-linux-too.patch
 
 cmp-long-options.patch
 readlink-em-options.patch

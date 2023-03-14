@@ -9,7 +9,7 @@ MAKEFLAGS += $(subst parallel=,-j,$(filter parallel=%,${DEB_BUILD_OPTIONS}))
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
-V = 1
+V = $(if $(filter terse, ${DEB_BUILD_OPTIONS}),,1)
 
 # Activate full hardening build flags
 export DEB_BUILD_MAINT_OPTIONS := hardening=+all
@@ -32,7 +32,7 @@ TESTSUITE_ENV += SHELL='${SHELL}'
 TESTSUITE_ENV += ECHO=/bin/echo
 
 # build directory
-b = debian/build
+b = b
 
 # which flavours to build
 flavours = deb static udeb
@@ -65,46 +65,28 @@ configure: $(patsubst %,$b/%/.stamp-setup, ${flavours})
 $(addprefix configure-,${flavours}): configure-%: $b/%/.stamp-setup
 .PHONY: configure $(addprefix configure-,${flavours})
 
-$b/%/.stamp-setup: DIR = $b/$*
+$b/%/.stamp-setup: d = $b/$*
 $b/%/.stamp-setup:
-	rm -rf ${DIR}
-	mkdir -p ${DIR}
-	cp -a -l $(filter-out debian $b, $(wildcard *)) ${DIR}
+	rm -rf $d
+	mkdir -p $d
 
 # Generate the .config file. First variable assignment wins.
 # Several steps..
 
-# 1, rm it just in case
-	rm -f ${DIR}/.config
-
-# 2, put any arch-specific overrides so they will have higher precedence
+# 1, put any arch-specific overrides so they will have higher precedence
 # should be empty for linux
-	cat debian/config/os/${DEB_HOST_ARCH_OS} > ${DIR}/.config
+	cat debian/config/os/${DEB_HOST_ARCH_OS} > $d/.config
 
-# 3, on non-linux platform, disable all config symbols
-# which select PLATFORM_LINUX.
-# Configuration information is stored in source files and in Config.src,
-# so we have to generate Config.in files first, -- done by gen_build_files.
-	${MAKE} -C ${DIR} gen_build_files
-ifneq (linux,${DEB_HOST_ARCH_OS})
-	find ${DIR} -name Config.in -exec \
-	  awk '$$1 == "config" { conf = $$2 } \
-	       $$1 == "select" && $$2 == "PLATFORM_LINUX" \
-	       { print "CONFIG_" conf "=n"; }' \
-	   {} + \
-        | sort -u >> ${DIR}/.config
-endif
+# 2, use the flavour-specific base config file.
+	cat debian/config/pkg/$* >> $d/.config
 
-# 4, use the flavour-specific base config file.
-	cat debian/config/pkg/$* >> ${DIR}/.config
+# 3, sort out the result using oldconfig Kbuild machinery and generate Makefile
+	yes "" | ${MAKE} -C $d -f "${CURDIR}/Makefile" KBUILD_SRC="${CURDIR}" silentoldconfig V=$V
 
-# 5, sort out the resulting mess using oldconfig Kbuild machinery
-	yes "" | ${MAKE} -C ${DIR} oldconfig V=$V
-
-# 6, on linux platform only, compare the re-generated config to the shipped
+# 4, on linux platform only, compare the re-generated config to the shipped
 # config in the package in order to catch new/changed upstream options.
 ifeq (linux,${DEB_HOST_ARCH_OS})
-	cmp debian/config/pkg/$* ${DIR}/.config
+	diff -u debian/config/pkg/$* $d/.config
 endif
 
 	ln -s .config $@
@@ -129,15 +111,15 @@ build-indep:
 # And installing will be done without the help from upstream makefiles,
 # based on the information in the generated busybox.links file.
 
-$b/%/.stamp-build: DIR = $b/$*
+$b/%/.stamp-build: d = $b/$*
 $b/%/.stamp-build: $b/%/.stamp-setup
-	${MAKE} -C ${DIR} all \
+	${MAKE} -C $d all \
 	 SKIP_STRIP=y \
 	 BB_EXTRA_VERSION="${DEB_VENDOR} ${DEB_VERSION}" \
 	 CONFIG_EXTRA_CFLAGS='${CFLAGS} ${CPPFLAGS}' \
 	 CONFIG_EXTRA_LDFLAGS='${CFLAGS} ${LDFLAGS}' \
 	 V=$V
-	${MAKE} -C ${DIR} busybox.links
+	${MAKE} -C $d busybox.links
 	ln -sf busybox $@
 
 ##############################################################################
@@ -146,24 +128,26 @@ build-arch: $(if $(filter nocheck,${DEB_BUILD_OPTIONS}),,test-deb)
 $(addprefix test-,${flavours}): test-%: $b/%/.stamp-test
 .PHONY: $(addprefix test-,${flavours})
 
-$b/%/.stamp-test: DIR = $b/$*
+$b/%/.stamp-test: d = $b/$*
 $b/%/.stamp-test: $b/%/.stamp-build
-	@echo ======== running testsuite in ${DIR} ========
-# mdev testsuite requires chroot which does not work as non-root user
-	rm -f ${DIR}/testsuite/mdev.tests
-# disable or fix some failing tests
-	if [ -f debian/testsuite-${DEB_HOST_ARCH_OS}.diff ] && \
-	   ! [ -f ${DIR}/.tests-fixed ]; then \
-		( cd ${DIR} && patch -p1 && touch .tests-fixed; ) \
+	@echo ======== running testsuite in $d ========
+	@if [ ! -f $d/testsuite/.setup ]; then \
+	    rm  -rf $d/testsuite ; \
+	    cp -al testsuite $d/ ; \
+	    rm -f $d/testsuite/mdev.tests; \
+	    [ ! -f debian/testsuite-${DEB_HOST_ARCH_OS}.diff ] || \
+		patch -p1 -d $d/ \
 		  < debian/testsuite-${DEB_HOST_ARCH_OS}.diff ; \
+	    touch $d/testsuite/.setup ; \
 	fi
-	cd ${DIR}/testsuite && ${TESTSUITE_ENV} ./runtest
+	cd $d/testsuite && ${TESTSUITE_ENV} ./runtest
 	touch $@
 
 ##############################################################################
 
 clean:
 	dh_clean $b/
+	rm -f .kernelrelease # leftover from the build process
 .PHONY: clean
 
 ##############################################################################

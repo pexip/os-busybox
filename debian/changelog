@@ -1,3 +1,56 @@
+busybox (1:1.35.0-4) unstable; urgency=medium
+
+  * static build: disable blkid applet (CONFIG_BLKID, #1023501)
+
+    Since static build has CONFIG_FEATURE_PREFER_APPLETS=y, enabling
+    any utility which is also provided by the system in other ways
+    can be risky, since busybox shell will choose its applet version
+    instead of running the actual utility, even if that utility file
+    exists in $PATH. After enabling blkid, we effectively overwrote
+    blkid from libblkid as used in initramfs. The result was non-
+    working udev rules for block devices (not creating /dev/disk/by-*/),
+    and the system's unbootable.
+
+    Disable it for now at least on static build.
+    Closes: 1023501
+
+  * d/rules: recognize "terse" in $DEB_BUILD_OPTIONS to disable verbose build
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 06 Nov 2022 11:27:04 +0300
+
+busybox (1:1.35.0-3) unstable; urgency=medium
+
+  [ Debian Janitor ]
+  * Apply multi-arch hints.
+    + udhcpc: Add Multi-Arch: same.
+
+  [ Philip Hands ]
+  * explicitly enable lintian
+  * disable repotest's fileordering variation
+  * stop running busybox tests in reprotest variations
+
+  [ Michael Tokarev ]
+  * deb: enable fdisk applet the same way as done in static config
+  * deb,static: enable blkid applet (useful for rescue purposes)
+  * deb,static: enable findfs applet (useful for rescue purposes)
+  * d/rules: use diff instead of cmp to compare config files
+    (makes differences, if any, to be immediately visible)
+  * support building on non-linux. 3 patches for upstream:
+    - platform-linux.diff - resurrect PLATFORM_LINUX and make it automatic
+    - fix-non-linux-build.patch - for missing O_DIRECT & IP_PKTINFO
+    - use-libresolv-on-non-linux-too.patch - -lresolv for nslookup
+  * adjust configs to include the new symbol
+  * d/rules: stop messing with "select PLATFORM_LINUX" thing
+  * d/rules: stop linking source into build subdir
+  * d/rules: fix testsuite run with no source in build dir
+  * d/rules: remove .kernelrelease in clean (leftover)
+  * d/rules: move build directory from debian/build/ to b/
+  * d/rules: s/${DIR}/$d/g
+  * d/config/os/hurd: remove nonexisting FEATURE_INITRD (see #593865)
+  * d/control: do not use ${shlib:Depends} for busybox-static
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 04 Nov 2022 20:41:55 +0300
+
 busybox (1:1.35.0-2pexip7) pexip; urgency=medium
 
   * make busybox-links important
