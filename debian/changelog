@@ -1,3 +1,11 @@
+busybox (1:1.35.0-4pexip2) pexip; urgency=medium
+
+  * Rebuild to move busybox-links into the new minimal component now
+    overrides have been updated.
+  * Typo fix in description of busybox-links
+
+ -- Steve McIntyre <steve.mcintyre@pexip.com>  Thu, 21 Sep 2023 17:13:04 +0100
+
 busybox (1:1.35.0-4pexip1) pexip; urgency=medium
 
   * New upstream release

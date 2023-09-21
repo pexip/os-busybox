@@ -62,7 +62,7 @@ Description: Tiny utilities for small and embedded systems (links)
  containers.
  .
  DO NOT INSTALL THIS PACKAGE ON A NORMAL SYSTEM UNLESS YOU WANT TO NEED
- TO PUT THE PIECE BACK TOGETHER
+ TO PUT THE PIECES BACK TOGETHER
 
 Package: busybox-static
 Architecture: any
