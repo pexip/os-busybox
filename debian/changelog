@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4pexip3) pexip-bookworm; urgency=medium
+
+  * Initial bookworm build
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 16 Nov 2023 09:55:57 +0000
+
 busybox (1:1.35.0-4pexip2) pexip; urgency=medium
 
   * Rebuild to move busybox-links into the new minimal component now
