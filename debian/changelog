@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4pexip4) pexip-bookworm; urgency=medium
+
+  * Bookworm build for product distribution
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Sat, 09 Dec 2023 22:51:59 +0000
+
 busybox (1:1.35.0-4pexip3) pexip-bookworm; urgency=medium
 
   * Initial bookworm build
