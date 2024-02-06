@@ -1,0 +1,82 @@
+diff --git a/coreutils/du.c b/coreutils/du.c
+index 832dd75..e13c154 100644
+--- a/coreutils/du.c
++++ b/coreutils/du.c
+@@ -50,6 +50,7 @@
+ //usage:     "\n	-b	Apparent size (including holes)"
+ //usage:     "\n	-L	Follow all symlinks"
+ //usage:     "\n	-H	Follow symlinks on command line"
++//usage:     "\n	-P	Don't follow any symlinks (default)"
+ //usage:     "\n	-d N	Limit output to directories (and files with -a) of depth < N"
+ //usage:     "\n	-c	Show grand total"
+ //usage:     "\n	-l	Count sizes many times if hard linked"
+@@ -84,6 +85,7 @@
+ static const char *du_long_opts =
+ 	"all\0"                   No_argument       "a"
+ 	"apparent-size\0"         No_argument       "b"
++	"no-dereference\0"        No_argument       "P"
+ 	"dereference\0"           No_argument       "L"
+ 	"dereference-args\0"      No_argument       "H"
+ 	"max-depth\0"             Required_argument "d"
+@@ -108,8 +110,9 @@ enum {
+ 	OPT_l_hardlinks    = (1 << 7),
+ 	OPT_c_total        = (1 << 8),
+ 	OPT_b              = (1 << 9),
+-	OPT_h_for_humans   = (1 << 10),
+-	OPT_m_mbytes       = (1 << 11),
++	OPT_P_no_follow_links = (1 << 10),
++	OPT_h_for_humans   = (1 << 11),
++	OPT_m_mbytes       = (1 << 12),
+ };
+ 
+ struct globals {
+@@ -270,15 +272,15 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ #if ENABLE_FEATURE_HUMAN_READABLE
+ #if ENABLE_FEATURE_DU_LONG_OPTIONS
+ 	opt = getopt32long(argv, "^"
+-			"aHkLsxd:+lcbhm"
+-			"\0" "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s",
++			"aHkLsxd:+lcbPhm"
++			"\0" "h-km:k-hm:m-hk:H-LP:L-HP:P-HL:s-d:d-s",
+ 			du_long_opts,
+ 			&G.max_print_depth
+ 	);
+ #else
+ 	opt = getopt32(argv, "^"
+-		"aHkLsxd:+lcbhm"
+-		"\0" "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s",
++		"aHkLsxd:+lcbPhm"
++		"\0" "h-km:k-hm:m-hk:H-LP:L-HP:P-HL:s-d:d-s",
+ 		&G.max_print_depth
+ 	);
+ #endif
+@@ -298,15 +300,15 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ #else
+ #if ENABLE_FEATURE_DU_LONG_OPTIONS
+ 	opt = getopt32long(argv, "^"
+-			"aHkLsxd:+lcb"
+-			"\0" "H-L:L-H:s-d:d-s",
++			"aHkLsxd:+lcbP"
++			"\0" "H-LP:L-HP:P-HL:s-d:d-s",
+ 			du_long_opts,
+ 			&G.max_print_depth
+ 	);
+ #else
+ 	opt = getopt32(argv, "^"
+-			"aHkLsxd:+lcb"
+-			"\0" "H-L:L-H:s-d:d-s",
++			"aHkLsxd:+lcbP"
++			"\0" "H-LP:L-HP:P-HL:s-d:d-s",
+ 			&G.max_print_depth
+ 	);
+ #endif
+@@ -323,6 +326,9 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ 	if (opt & OPT_L_follow_links) {
+ 		G.slink_depth = INT_MAX;
+ 	}
++	if (opt & OPT_P_no_follow_links) {
++		G.slink_depth = 0;
++	}
+ 	if (opt & OPT_s_total_norecurse) {
+ 		G.max_print_depth = 0;
+ 	}

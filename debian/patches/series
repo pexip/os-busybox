@@ -25,3 +25,4 @@ pexip-stat-long-options.patch
 pexip-cp-preserve.patch
 pexip-cp-sparse.patch
 pexip-du-long-options.patch
+pexip-du-no-dereference.patch
