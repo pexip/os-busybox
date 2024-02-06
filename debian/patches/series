@@ -22,3 +22,6 @@ sort-long-options.patch
 add-pager-to-more.patch
 ash-is-dash.patch
 pexip-stat-long-options.patch
+pexip-cp-preserve.patch
+pexip-cp-sparse.patch
+

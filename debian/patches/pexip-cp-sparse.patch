@@ -1,0 +1,13 @@
+diff --git a/coreutils/cp.c b/coreutils/cp.c
+index ee40af5..33c3753 100644
+--- a/coreutils/cp.c
++++ b/coreutils/cp.c
+@@ -159,6 +159,7 @@ int cp_main(int argc, char **argv)
+ # if ENABLE_FEATURE_CP_REFLINK
+ 		"reflink\0"        Optional_argument "\xfd"
+ # endif
+		"preserve\0"       Required_argument "P"
++		"sparse\0"         Required_argument "\xfc"
+ 		, &last
+ # if ENABLE_FEATURE_CP_REFLINK
+ 		, &reflink
