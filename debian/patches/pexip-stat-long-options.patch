@@ -1,0 +1,62 @@
+diff --git a/coreutils/stat.c b/coreutils/stat.c
+index 2c2909e..6a9f9fc 100644
+--- a/coreutils/stat.c
++++ b/coreutils/stat.c
+@@ -18,6 +18,11 @@
+ //config:	help
+ //config:	display file or filesystem status.
+ //config:
++//config:config FEATURE_STAT_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on STAT && LONG_OPTS
++//config:
+ //config:config FEATURE_STAT_FORMAT
+ //config:	bool "Enable custom formats (-c)"
+ //config:	default y
+@@ -115,6 +120,24 @@ enum {
+ 	OPT_SELINUX     = (1 << (2+ENABLE_FEATURE_STAT_FILESYSTEM)) * ENABLE_SELINUX,
+ };
+ 
++#if ENABLE_FEATURE_STAT_LONG_OPTIONS
++static const char *stat_long_opts =
++	"deference\0"             No_argument       "L"
++	"file-system\0"           No_argument       "f"
++	"terse\0"                 No_argument       "t"
++	"format\0"                Required_argument "c"
++	;
++#endif
++
++static const char stat_opt_str[] ALIGN1 = "^"
++		"tL"
++		IF_FEATURE_STAT_FILESYSTEM("f")
++		IF_SELINUX("Z")
++		IF_FEATURE_STAT_FORMAT("c:")
++		"\0" "-1" /* min one arg */
++		IF_FEATURE_STAT_FORMAT(,&format);
++
++
+ #if ENABLE_FEATURE_STAT_FORMAT
+ typedef bool (*statfunc_ptr)(const char *, const char *);
+ #else
+@@ -766,16 +789,12 @@ int stat_main(int argc UNUSED_PARAM, char **argv)
+ #if ENABLE_FEATURE_STAT_FILESYSTEM || ENABLE_SELINUX
+ 	unsigned opts;
+ 
++#if ENABLE_FEATURE_STAT_LONG_OPTIONS
++	opts = getopt32long(argv, stat_opt_str)
++#endif
+ 	opts =
+ #endif
+-	getopt32(argv, "^"
+-		"tL"
+-		IF_FEATURE_STAT_FILESYSTEM("f")
+-		IF_SELINUX("Z")
+-		IF_FEATURE_STAT_FORMAT("c:")
+-		"\0" "-1" /* min one arg */
+-		IF_FEATURE_STAT_FORMAT(,&format)
+-	);
++	getopt32(argv, stat_opt_str);
+ #if ENABLE_FEATURE_STAT_FILESYSTEM
+ 	if (opts & OPT_FILESYS) /* -f */
+ 		statfunc = do_statfs;
