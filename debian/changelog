@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4+pexip24u6) pexip; urgency=medium
+
+  * stat: add long options
+
+ -- Huw Jones <huw@pexip.com>  Tue, 06 Feb 2024 10:54:59 +0000
+
 busybox (1:1.35.0-4+pexip24u5) pexip-bookworm; urgency=medium
 
   * New versioning scheme
