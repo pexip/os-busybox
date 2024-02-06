@@ -2,12 +2,24 @@ diff --git a/coreutils/cp.c b/coreutils/cp.c
 index ee40af5..33c3753 100644
 --- a/coreutils/cp.c
 +++ b/coreutils/cp.c
-@@ -159,6 +159,7 @@ int cp_main(int argc, char **argv)
- # if ENABLE_FEATURE_CP_REFLINK
+@@ -117,6 +117,7 @@
+ 	struct stat dest_stat;
+ 	const char *last;
+ 	const char *dest;
++	const char *_sparse;
+ 	int s_flags;
+ 	int d_flags;
+ 	int flags;
+@@ -160,10 +161,12 @@ int cp_main(int argc, char **argv)
  		"reflink\0"        Optional_argument "\xfd"
  # endif
-		"preserve\0"       Required_argument "P"
+ 		"preserve\0"       Required_argument "P"
 +		"sparse\0"         Required_argument "\xfc"
  		, &last
  # if ENABLE_FEATURE_CP_REFLINK
  		, &reflink
+ # endif
++		, &_sparse
+ 	);
+ # if ENABLE_FEATURE_CP_REFLINK
+ 	BUILD_BUG_ON((int)OPT_reflink != (int)FILEUTILS_REFLINK);
