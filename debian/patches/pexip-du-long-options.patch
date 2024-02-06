@@ -1,0 +1,83 @@
+diff --git a/coreutils/du.c b/coreutils/du.c
+index 832dd75..d5242ad 100644
+--- a/coreutils/du.c
++++ b/coreutils/du.c
+@@ -25,6 +25,11 @@
+ //config:	du is used to report the amount of disk space used
+ //config:	for specified files.
+ //config:
++//config:config FEATURE_DU_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on DU && LONG_OPTS
++//config:
+ //config:config FEATURE_DU_DEFAULT_BLOCKSIZE_1K
+ //config:	bool "Use default blocksize of 1024 bytes (else it's 512 bytes)"
+ //config:	default y
+@@ -75,6 +80,23 @@
+ #include "libbb.h"
+ #include "common_bufsiz.h"
+ 
++#if ENABLE_FEATURE_DU_LONG_OPTIONS
++static const char *du_long_opts =
++	"all\0"                   No_argument       "a"
++	"apparent-size\0"         No_argument       "b"
++	"dereference\0"           No_argument       "L"
++	"dereference-args\0"      No_argument       "H"
++	"max-depth\0"             Required_argument "d"
++	"total\0"                 No_argument       "c"
++	"count-links\0"           No_argument       "l"
++	"summarize\0"             No_argument       "s"
++	"one-file-system\0"       No_argument       "x"
++	IF_FEATURE_HUMAN_READABLE(
++	"human-readable\0"        No_argument       "h"
++	)
++	;
++#endif
++
+ enum {
+ 	OPT_a_files_too    = (1 << 0),
+ 	OPT_H_follow_links = (1 << 1),
+@@ -246,11 +268,20 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ 	 * ignore -a.  This is consistent with -s being equivalent to -d 0.
+ 	 */
+ #if ENABLE_FEATURE_HUMAN_READABLE
+-	opt = getopt32(argv, "^"
++#if ENABLE_FEATURE_DU_LONG_OPTIONS
++	opt = getopt32long(argv, "^"
+ 			"aHkLsxd:+lcbhm"
+ 			"\0" "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s",
++			du_long_opts,
+ 			&G.max_print_depth
+ 	);
++#else
++	opt = getopt32(argv, "^"
++		"aHkLsxd:+lcbhm"
++		"\0" "h-km:k-hm:m-hk:H-L:L-H:s-d:d-s",
++		&G.max_print_depth
++	);
++#endif
+ 	argv += optind;
+ 	if (opt & OPT_b) {
+ 		G.disp_unit = 1;
+@@ -265,11 +296,20 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ 		G.disp_unit = 1024;
+ 	}
+ #else
++#if ENABLE_FEATURE_DU_LONG_OPTIONS
++	opt = getopt32long(argv, "^"
++			"aHkLsxd:+lcb"
++			"\0" "H-L:L-H:s-d:d-s",
++			du_long_opts,
++			&G.max_print_depth
++	);
++#else
+ 	opt = getopt32(argv, "^"
+ 			"aHkLsxd:+lcb"
+ 			"\0" "H-L:L-H:s-d:d-s",
+ 			&G.max_print_depth
+ 	);
++#endif
+ 	argv += optind;
+ # if !ENABLE_FEATURE_DU_DEFAULT_BLOCKSIZE_1K
+ 	if (opt & OPT_k_kbytes) {
