@@ -89,6 +89,7 @@
 /bin/busybox /usr/bin/logname
 /bin/busybox /usr/bin/md5sum
 /bin/busybox /usr/bin/mkfifo
+/bin/busybox /usr/bin/mountpoint
 /bin/busybox /usr/bin/nl
 /bin/busybox /usr/bin/nproc
 /bin/busybox /usr/bin/nsenter

@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4+pexip24u8) pexip; urgency=medium
+
+  * Enable mountpoint
+
+ -- Huw Jones <huw@pexip.com>  Tue, 06 Feb 2024 17:53:44 +0000
+
 busybox (1:1.35.0-4+pexip24u7) pexip; urgency=medium
 
   * stat: fix typo in dereference
