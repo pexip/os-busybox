@@ -20,7 +20,7 @@ index 2c2909e..6a9f9fc 100644
  
 +#if ENABLE_FEATURE_STAT_LONG_OPTIONS
 +static const char *stat_long_opts =
-+	"deference\0"             No_argument       "L"
++	"dereference\0"             No_argument       "L"
 +	IF_FEATURE_STAT_FILESYSTEM(
 +	"file-system\0"           No_argument       "f"
 +	)

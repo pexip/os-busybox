@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4+pexip24u7) pexip; urgency=medium
+
+  * stat: fix typo in dereference
+
+ -- Huw Jones <huw@pexip.com>  Tue, 06 Feb 2024 12:50:11 +0000
+
 busybox (1:1.35.0-4+pexip24u6) pexip; urgency=medium
 
   * stat: add long options
