@@ -1,0 +1,155 @@
+diff --git a/include/libbb.h b/include/libbb.h
+index a487828..cba4db4 100644
+--- a/include/libbb.h
++++ b/include/libbb.h
+@@ -1099,6 +1099,7 @@ char *smart_ulltoa5(unsigned long long ul, char buf[5], const char *scale) FAST_
+ #define HUMAN_READABLE_MAX_WIDTH_STR "7"
+ const char *make_human_readable_str(unsigned long long size,
+ 		unsigned long block_size, unsigned long display_unit) FAST_FUNC;
++int human_readable_to_uint(char *input, unsigned long long *result) FAST_FUNC;
+ /* Put a string of hex bytes ("1b2e66fe"...), return advanced pointer */
+ char *bin2hex(char *dst, const char *src, int count) FAST_FUNC;
+ /* Reverse */
+diff --git a/libbb/human_readable.c b/libbb/human_readable.c
+index 09221a1..a5d4ea2 100644
+--- a/libbb/human_readable.c
++++ b/libbb/human_readable.c
+@@ -184,3 +184,28 @@ char* FAST_FUNC smart_ulltoa4(unsigned long long ul, char buf[4], const char *sc
+ 	}
+ 	return buf + 4;
+ }
++
++static const char *human_readable_suffixes = "KMGTPEZY";
++
++int FAST_FUNC human_readable_to_uint(char *input, unsigned long long *result)
++{
++    char *endptr = input;
++    char *match = NULL;
++    size_t shift = 0;
++
++    unsigned long long value = strtoull(input, &endptr, 10);
++    if (endptr == input) {
++        return 1;
++    }
++    if(!(match = strchr(human_readable_suffixes, toupper(*endptr)))) {
++        return 1;
++    }
++
++    if(*match) {
++        shift = (match - human_readable_suffixes + 1) * 10;
++    }
++
++    *result = value * (1LU << shift);
++
++    return 0;
++}
+--- a/coreutils/du.c
++++ b/coreutils/du.c
+@@ -48,6 +48,7 @@
+ //usage:       "Summarize disk space used for FILEs (or directories)\n"
+ //usage:     "\n	-a	Show file sizes too"
+ //usage:     "\n	-b	Apparent size (including holes)"
++//usage:     "\n	-B	scale sizes by SIZE before printing them"
+ //usage:     "\n	-L	Follow all symlinks"
+ //usage:     "\n	-H	Follow symlinks on command line"
+ //usage:     "\n	-P	Don't follow any symlinks (default)"
+@@ -96,6 +97,7 @@
+ 	IF_FEATURE_HUMAN_READABLE(
+ 	"human-readable\0"        No_argument       "h"
+ 	)
++	"block-size\0"              Required_argument "B"
+ 	;
+ #endif
+ 
+@@ -111,8 +113,9 @@ enum {
+ 	OPT_c_total        = (1 << 8),
+ 	OPT_b              = (1 << 9),
+ 	OPT_P_no_follow_links = (1 << 10),
+-	OPT_h_for_humans   = (1 << 11),
+-	OPT_m_mbytes       = (1 << 12),
++	OPT_B_block_size   = (1 << 11),
++	OPT_h_for_humans   = (1 << 12),
++	OPT_m_mbytes       = (1 << 13),
+ };
+ 
+ struct globals {
+@@ -250,6 +253,7 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ 	unsigned long long total;
+ 	int slink_depth_save;
+ 	unsigned opt;
++	char *block_size;
+ 
+ 	INIT_G();
+ 
+@@ -273,16 +277,18 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ #if ENABLE_FEATURE_HUMAN_READABLE
+ #if ENABLE_FEATURE_DU_LONG_OPTIONS
+ 	opt = getopt32long(argv, "^"
+-			"aHkLsxd:+lcbPhm"
+-			"\0" "h-km:k-hm:m-hk:H-LP:L-HP:P-HL:s-d:d-s",
++			"aHkLsxd:+lcbPB:hm"
++			"\0" "h-kmB:k-hmB:m-hkB:B-hkm:H-LP:L-HP:P-HL:s-d:d-s",
+ 			du_long_opts,
+-			&G.max_print_depth
++			&G.max_print_depth,
++			&block_size
+ 	);
+ #else
+ 	opt = getopt32(argv, "^"
+-		"aHkLsxd:+lcbPhm"
+-		"\0" "h-km:k-hm:m-hk:H-LP:L-HP:P-HL:s-d:d-s",
+-		&G.max_print_depth
++		"aHkLsxd:+lcbPB:hm"
++		"\0" "h-kmB:k-hmB:m-hkB:B-hkm:H-LP:L-HP:P-HL:s-d:d-s",
++		&G.max_print_depth,
++		&block_size
+ 	);
+ #endif
+ 	argv += optind;
+@@ -298,19 +304,27 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ 	if (opt & OPT_k_kbytes) {
+ 		G.disp_unit = 1024;
+ 	}
++	if (opt & OPT_B_block_size) {
++		if (human_readable_to_uint(block_size, &G.disp_unit) != 0){
++			printf("invalid --block-size argument '%s'\n", block_size);
++			fflush_stdout_and_exit(1);
++		}
++	}
+ #else
+ #if ENABLE_FEATURE_DU_LONG_OPTIONS
+ 	opt = getopt32long(argv, "^"
+-			"aHkLsxd:+lcbP"
+-			"\0" "H-LP:L-HP:P-HL:s-d:d-s",
++			"aHkLsxd:+lcbPB:"
++			"\0" "k-B:B-k:H-LP:L-HP:P-HL:s-d:d-s",
+ 			du_long_opts,
+-			&G.max_print_depth
++			&G.max_print_depth,
++			&block_size
+ 	);
+ #else
+ 	opt = getopt32(argv, "^"
+-			"aHkLsxd:+lcbP"
+-			"\0" "H-LP:L-HP:P-HL:s-d:d-s",
+-			&G.max_print_depth
++			"aHkLsxd:+lcbPB:"
++			"\0" "k-B:B-k:H-LP:L-HP:P-HL:s-d:d-s",
++			&G.max_print_depth,
++			&block_size
+ 	);
+ #endif
+ 	argv += optind;
+@@ -319,6 +333,12 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+ 		G.disp_k = 1;
+ 	}
+ # endif
++	if (opt & OPT_B_block_size) {
++		if (human_readable_to_uint(block_size, &G.disp_unit) != 0){
++			printf("invalid --block-size argument '%s'\n", block_size);
++			fflush_stdout_and_exit(1);
++		}
++	}
+ #endif
+ 	if (opt & OPT_H_follow_links) {
+ 		G.slink_depth = 1;
