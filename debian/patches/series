@@ -27,3 +27,4 @@ pexip-cp-sparse.patch
 pexip-du-long-options.patch
 pexip-du-no-dereference.patch
 pexip-du-block-size.patch
+pexip-ionice-long-options.patch

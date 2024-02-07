@@ -1,0 +1,92 @@
+diff --git a/util-linux/ionice.c b/util-linux/ionice.c
+index 82bd309..d92db14 100644
+--- a/util-linux/ionice.c
++++ b/util-linux/ionice.c
+@@ -13,6 +13,11 @@
+ //config:	help
+ //config:	Set/set program io scheduling class and priority
+ //config:	Requires kernel >= 2.6.13
++//config:config FEATURE_IONICE_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on IONICE && LONG_OPTS
++//config:
+ 
+ //applet:IF_IONICE(APPLET_NOEXEC(ionice, ionice, BB_DIR_BIN, BB_SUID_DROP, ionice))
+ 
+@@ -31,6 +36,15 @@
+ #include <asm/unistd.h>
+ #include "libbb.h"
+ 
++#if ENABLE_FEATURE_DU_LONG_OPTIONS
++static const char *ionice_long_opts =
++	"class\0"                 Required_argument "c"
++	"classdata\0"             Required_argument "n"
++	"pid\0"                   Required_argument "p"
++	"ignore\0"                No_argument       "t"
++;
++#endif
++
+ static int ioprio_set(int which, int who, int ioprio)
+ {
+ 	return syscall(SYS_ioprio_set, which, who, ioprio);
+@@ -58,11 +72,37 @@
+ 
+ #define IOPRIO_CLASS_SHIFT      13
+ 
++int str_to_ioclass(const char *class_str)
++{
++	if (strlen(class_str) == 1) {
++		switch (class_str[0]) {
++		case '0': return 0;
++		case '1': return 1;
++		case '2': return 2;
++		case '3': return 3;
++		}
++	}
++	if (strcmp("none", class_str) == 0) {
++		return 0;
++	}
++	if (strcmp("realtime", class_str) == 0) {
++		return 1;
++	}
++	if (strcmp("best-effort", class_str) == 0) {
++		return 2;
++	}
++	if (strcmp("idle", class_str) == 0) {
++		return 3;
++	}
++	return -1;
++}
++
+ int ionice_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+ int ionice_main(int argc UNUSED_PARAM, char **argv)
+ {
+ 	/* Defaults */
+ 	int ioclass = 0;
++	char *ioclass_str;
+ 	int pri = 0;
+ 	int pid = 0; /* affect own process */
+ 	int opt;
+@@ -75,12 +115,18 @@ ionice_main(int argc UNUSED_PARAM, char **argv)
+ 
+ 	/* '+': stop at first non-option */
+ 	/* numeric params for -n -c -p */
+-	opt = getopt32(argv, "+""n:+c:+p:+t", &pri, &ioclass, &pid);
++#if ENABLE_FEATURE_IONICE_LONG_OPTIONS
++	opt = getopt32long(argv, "+""n:+c:p:+t", ionice_long_opts, &pri, &ioclass_str, &pid);
++#else
++	opt = getopt32(argv, "+""n:+c:p:+t", &pri, &ioclass_str, &pid);
++#endif
+ 	argv += optind;
+ 
+ 	if (opt & OPT_c) {
+-		if (ioclass > 3)
+-			bb_error_msg_and_die("bad class %d", ioclass);
++		ioclass = str_to_ioclass(ioclass_str);
++		if (ioclass == -1) {
++			bb_error_msg_and_die("invalid class '%s'\n", ioclass_str);
++		}
+ // Do we need this (compat?)?
+ //		if (ioclass == IOPRIO_CLASS_NONE)
+ //			ioclass = IOPRIO_CLASS_BE;
