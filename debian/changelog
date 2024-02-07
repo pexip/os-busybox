@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4+pexip24u10) pexip; urgency=medium
+
+  * ionice: fix long options ifdef check + minor tweaks
+
+ -- Huw Jones <huw@pexip.com>  Wed, 07 Feb 2024 11:26:28 +0000
+
 busybox (1:1.35.0-4+pexip24u9) pexip; urgency=medium
 
   * ionice: add long options
