@@ -1,0 +1,86 @@
+diff --git a/findutils/grep.c b/findutils/grep.c
+index 8600d72..49119b2 100644
+--- a/findutils/grep.c
++++ b/findutils/grep.c
+@@ -43,6 +43,10 @@
+ //config:	Print the specified number of leading (-B) and/or trailing (-A)
+ //config:	context surrounding our matching lines.
+ //config:	Print the specified number of context lines (-C).
++//config:config FEATURE_GREP_LONG_OPTIONS
++//config:	bool "Enable long options"
++//config:	default n
++//config:	depends on (GREP || EGREP || FGREP) && LONG_OPTS
+ 
+ //applet:IF_GREP(APPLET(grep, BB_DIR_BIN, BB_SUID_DROP))
+ //                APPLET_ODDNAME:name   main  location    suid_type     help
+@@ -105,6 +109,43 @@
+ //usage:#define fgrep_trivial_usage NOUSAGE_STR
+ //usage:#define fgrep_full_usage ""
+ 
++#if ENABLE_FEATURE_GREP_LONG_OPTIONS
++static const char *grep_long_opts =
++	"with-filename\0"         No_argument       "H"
++	"no-filename\0"           No_argument       "h"
++	"line-number\0"           No_argument       "n"
++	"files-with-matches\0"    No_argument       "l"
++	"files-without-match\0"   No_argument       "L"
++	"count\0"                 No_argument       "c"
++	"only-matching\0"         No_argument       "o"
++	"quiet\0"                 No_argument       "q"
++	"silent\0"                No_argument       "q"
++	"invert-match\0"          No_argument       "v"
++	"no-messages\0"           No_argument       "s"
++	"recursive\0"             No_argument       "r"
++	"dereference-recursive\0" No_argument       "R"
++	"ignore-case\0"           No_argument       "i"
++	"word-regexp\0"           No_argument       "w"
++	"fixed-strings\0"         No_argument       "F"
++	"extended-regexp\0"       No_argument       "E"
++	IF_EXTRA_COMPAT(
++	"null-data\0"             No_argument       "z"
++	)
++	"max-count\0"             Required_argument "m"
++	IF_FEATURE_GREP_CONTEXT(
++	"after-context\0"         Required_argument "A"
++	"before-context\0"        Required_argument "B"
++	"context\0"               Required_argument "C"
++	)
++	"regexp\0"                Optional_argument "e"
++	"file\0"                  Optional_argument "f"
++	// ignored
++	"text\0"                  No_argument       "a"
++
++	"color\0"                 Optional_argument "\xff"
++;
++#endif
++
+ /* -e,-f are lists; -m,-A,-B,-C have numeric param */
+ #define OPTSTR_GREP \
+ 	"lnqvscFiHhe:*f:*LorRm:+wx" \
+@@ -725,7 +766,11 @@ int grep_main(int argc UNUSED_PARAM, char **argv)
+ 		OPTSTR_GREP
+ 			"\0"
+ 			"H-h:C-AB",
++#if ENABLE_FEATURE_GREP_LONG_OPTIONS
++		grep_long_opts,
++#else
+ 		"color\0" Optional_argument "\xff",
++#endif
+ 		&pattern_head, &fopt, &max_matches,
+ 		&lines_after, &lines_before, &Copt
+ 		, NULL
+@@ -753,9 +798,14 @@ int grep_main(int argc UNUSED_PARAM, char **argv)
+ 	}
+ #else
+ 	/* with auto sanity checks */
++#if FEATURE_GREP_LONG_OPTIONS
++	getopt32long(argv, "^" OPTSTR_GREP "\0" "H-h:c-n:q-n:l-n:", // why trailing ":"?
++		grep_long_opts, &pattern_head, &fopt, &max_matches);
++#else
+ 	getopt32(argv, "^" OPTSTR_GREP "\0" "H-h:c-n:q-n:l-n:", // why trailing ":"?
+ 		&pattern_head, &fopt, &max_matches);
+ #endif
++#endif
+ 	invert_search = ((option_mask32 & OPT_v) != 0); /* 0 | 1 */
+ 
+ 	{	/* convert char **argv to pattern_list */
