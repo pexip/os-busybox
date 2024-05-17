@@ -1,3 +1,9 @@
+busybox (1:1.35.0-4+pexip24u12) pexip; urgency=medium
+
+  * busybox-links: pretend to provide a modern sysvinit-utils
+
+ -- Huw Jones <huw@pexip.com>  Fri, 17 May 2024 12:59:43 +0100
+
 busybox (1:1.35.0-4+pexip24u11) pexip; urgency=medium
 
   * grep: add long options
