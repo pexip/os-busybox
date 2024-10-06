@@ -11,7 +11,7 @@ case "${1:-}" in
   prereqs)  echo ""; exit 0;;
 esac
 
-BB_BIN=/bin/busybox
+BB_BIN=/usr/bin/busybox
 
 [ n = "$BUSYBOX" ] && exit 0
 

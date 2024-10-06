@@ -34,7 +34,7 @@
  * It doesn't guess filesystem types from on-disk format.
  */
 //config:config FSCK
-//config:	bool "fsck (7.4 kb)"
+//config:	bool "fsck (7.6 kb)"
 //config:	default y
 //config:	help
 //config:	fsck is used to check and optionally repair one or more filesystems.
@@ -190,7 +190,7 @@ struct globals {
  * Required for the uber-silly devfs /dev/ide/host1/bus2/target3/lun3
  * pathames.
  */
-static const char *const devfs_hier[] = {
+static const char *const devfs_hier[] ALIGN_PTR = {
 	"host", "bus", "target", "lun", NULL
 };
 #endif

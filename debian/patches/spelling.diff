@@ -1,6 +1,7 @@
 From: Michael Tokarev <mjt@tls.msk.ru>
 Date: Sun, 08 May 2022 21:38:38 +0300
 Subject: Spelling: recevied, delimeter
+Forwarded: yes, http://lists.busybox.net/pipermail/busybox/2023-November/090563.html
 
 --- a/coreutils/cut.c
 +++ b/coreutils/cut.c
@@ -15,23 +16,3 @@ Subject: Spelling: recevied, delimeter
  //usage:     "\n	-f LIST	Print only these fields (-d is single char)"
  //usage:     IF_FEATURE_CUT_REGEX(
  //usage:     "\n	-F LIST	Print only these fields (-d is regex)"
---- a/networking/ping.c
-+++ b/networking/ping.c
-@@ -74,7 +74,7 @@
- //usage:     "\n	-c CNT		Send only CNT pings"
- //usage:     "\n	-s SIZE		Send SIZE data bytes in packets (default 56)"
- //usage:     "\n	-i SECS		Interval"
--//usage:     "\n	-A		Ping as soon as reply is recevied"
-+//usage:     "\n	-A		Ping as soon as reply is received"
- //usage:     "\n	-t TTL		Set TTL"
- //usage:     "\n	-I IFACE/IP	Source interface or IP address"
- //usage:     "\n	-W SEC		Seconds to wait for the first response (default 10)"
-@@ -91,7 +91,7 @@
- //usage:     "\n	-c CNT		Send only CNT pings"
- //usage:     "\n	-s SIZE		Send SIZE data bytes in packets (default 56)"
- //usage:     "\n	-i SECS		Interval"
--//usage:     "\n	-A		Ping as soon as reply is recevied"
-+//usage:     "\n	-A		Ping as soon as reply is received"
- ///////:     "\n	-t TTL		Set TTL"
- ///////^^^^^ -t not tested for IPv6, might be not working
- //usage:     "\n	-I IFACE/IP	Source interface or IP address"

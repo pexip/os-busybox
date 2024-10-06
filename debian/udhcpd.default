@@ -1,0 +1,10 @@
+# Comment the following line to enable
+# (under systemd use `systemctl enable udhcpd.service' instead)
+DHCPD_ENABLED="no"
+
+# Options to pass to busybox' udhcpd.
+#
+# -S    Log to syslog
+# -f    run in foreground
+
+DHCPD_OPTS="-S"

@@ -154,39 +154,26 @@ clean:
 
 override_dh_auto_install:
 
-override_dh_install: $(patsubst %,$b/%/.stamp-build, ${flavours})
-	dh_install
-
-	dh_install -pbusybox $b/deb/busybox bin/
-	dh_install -pbusybox $b/deb/docs/busybox.1 usr/share/man/man1/
-
-	dh_install -pbusybox-static $b/static/busybox bin/
-	dh_install -pbusybox-static $b/static/docs/busybox.1 usr/share/man/man1/
-
-	dh_install -pbusybox-udeb $b/udeb/busybox bin/
+execute_after_dh_link-arch:
 # for udeb we also need links. But we can not easily use `make install'
 # (see comment above). So we run the install rules directly here:
 	dh_link -pbusybox-udeb \
 	  $$(grep -v sbin/init $b/udeb/busybox.links | sed 's|^|/bin/busybox |')
 
-override_dh_installinit:
-	dh_installinit -pbusybox-syslogd
-	dh_installinit -pbusybox-syslogd --name=busybox-klogd
-
-ifeq (linux,$(DEB_HOST_ARCH_OS))
-# udhcpc
-# udhcpd
-	dh_installinit -pudhcpd --onlyscripts
-endif
-
-override_dh_gencontrol:
+execute_before_dh_gencontrol-arch:
 # after shlibdeps finished, grab ${shlibs:Depends} from busybox package
 # and transform it into Built-Using field (also dpkg-query bug #588505)
-	if [ -f debian/busybox.substvars ]; then \
-	  pkgs=$$(sed -n -e's/([^)]*)//g' -e's/,//g' -e's/^shlibs:Depends=//p' debian/busybox.substvars); \
-	  srcs=; for p in $$pkgs; do \
-	    srcs="$$srcs $$(dpkg-query -f '$${source:Package} (= $${source:Version}),' -W $$p)"; \
-	  done ; \
-	  echo "built-using=$$srcs" >> debian/busybox-static.substvars ; \
-	fi
-	dh_gencontrol
+	pkgs=$$(sed -n -e's/([^)]*)//g' -e's/,//g' -e's/^shlibs:Depends=//p' debian/busybox.substvars); \
+	srcs=; for p in $$pkgs; do \
+	  srcs="$$srcs $$(dpkg-query -f '$${source:Package} (= $${source:Version}),' -W $$p)"; \
+	done ; \
+	echo "built-using=$$srcs" >> debian/busybox-static.substvars
+
+# install busybox-klogd startup scripts
+execute_before_dh_installinit:
+	dh_installinit -pbusybox-syslogd --name=busybox-klogd
+override_dh_installsystemd:
+# explicitly list all packages with .service files here
+	dh_installsystemd -pbusybox-syslogd --name=busybox-klogd
+	dh_installsystemd -pbusybox-syslogd
+	dh_installsystemd -pudhcpd --no-enable

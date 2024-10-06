@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config NSENTER
-//config:	bool "nsenter (6.5 kb)"
+//config:	bool "nsenter (6.8 kb)"
 //config:	default y
 //config:	help
 //config:	Run program with namespaces of other processes.
@@ -93,7 +93,7 @@ enum {
  * The user namespace comes first, so that it is entered first.
  * This gives an unprivileged user the potential to enter other namespaces.
  */
-static const struct namespace_descr ns_list[] = {
+static const struct namespace_descr ns_list[] ALIGN_INT = {
 	{ CLONE_NEWUSER, "ns/user", },
 	{ CLONE_NEWIPC,  "ns/ipc",  },
 	{ CLONE_NEWUTS,  "ns/uts",  },

@@ -3,7 +3,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config LOGIN
-//config:	bool "login (24 kb)"
+//config:	bool "login (25 kb)"
 //config:	default y
 //config:	select FEATURE_SYSLOG
 //config:	help
@@ -173,7 +173,7 @@ static void die_if_nologin(void)
 	fflush_all();
 	/* Users say that they do need this prior to exit: */
 	tcdrain(STDOUT_FILENO);
-	exit(EXIT_FAILURE);
+	exit_FAILURE();
 }
 #else
 # define die_if_nologin() ((void)0)
@@ -265,19 +265,19 @@ static void get_username_or_die(char *buf, int size_buf)
 	do {
 		c = getchar();
 		if (c == EOF)
-			exit(EXIT_FAILURE);
+			exit_FAILURE();
 		if (c == '\n') {
 			if (!--cntdown)
-				exit(EXIT_FAILURE);
+				exit_FAILURE();
 			goto prompt;
 		}
 	} while (isspace(c)); /* maybe isblank? */
 
 	*buf++ = c;
 	if (!fgets(buf, size_buf-2, stdin))
-		exit(EXIT_FAILURE);
+		exit_FAILURE();
 	if (!strchr(buf, '\n'))
-		exit(EXIT_FAILURE);
+		exit_FAILURE();
 	while ((unsigned char)*buf > ' ')
 		buf++;
 	*buf = '\0';
@@ -312,7 +312,7 @@ static void alarm_handler(int sig UNUSED_PARAM)
 	/* unix API is brain damaged regarding O_NONBLOCK,
 	 * we should undo it, or else we can affect other processes */
 	ndelay_off(STDOUT_FILENO);
-	_exit(EXIT_SUCCESS);
+	_exit_SUCCESS();
 }
 
 int login_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -564,7 +564,9 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 
 	change_identity(pw);
 	setup_environment(pw->pw_shell,
-			(!(opt & LOGIN_OPT_p) * SETUP_ENV_CLEARENV) + SETUP_ENV_CHANGEENV,
+			(!(opt & LOGIN_OPT_p) * SETUP_ENV_CLEARENV)
+				+ SETUP_ENV_CHANGEENV
+				+ SETUP_ENV_CHDIR,
 			pw);
 
 #if ENABLE_PAM
@@ -608,7 +610,9 @@ int login_main(int argc UNUSED_PARAM, char **argv)
 	 * But without this, bash 3.0 will not enable ctrl-c either.
 	 * Maybe bash is buggy?
 	 * Need to find out what standards say about /bin/login -
-	 * should we leave SIGINT etc enabled or disabled? */
+	 * should we leave SIGINT etc enabled or disabled?
+	 * Also note: sulogin does not do it! Why?
+	 */
 	signal(SIGINT, SIG_DFL);
 
 	/* Exec login shell with no additional parameters */

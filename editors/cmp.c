@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config CMP
-//config:	bool "cmp (4.9 kb)"
+//config:	bool "cmp (5.3 kb)"
 //config:	default y
 //config:	help
 //config:	cmp is used to compare two files and returns the result
@@ -54,6 +54,7 @@ int cmp_main(int argc UNUSED_PARAM, char **argv)
 	int retval = 0;
 	int max_count = -1;
 
+#if !ENABLE_LONG_OPTS
 	opt = getopt32(argv, "^"
 			OPT_STR
 			"\0" "-1"
@@ -62,6 +63,23 @@ int cmp_main(int argc UNUSED_PARAM, char **argv)
 			":l--s:s--l",
 			&max_count
 	);
+#else
+	static const char cmp_longopts[] ALIGN1 =
+		"bytes\0"          Required_argument  "n"
+		"quiet\0"          No_argument        "s"
+		"silent\0"         No_argument        "s"
+		"verbose\0"        No_argument        "l"
+		;
+	opt = getopt32long(argv, "^"
+			OPT_STR
+			"\0" "-1"
+			IF_DESKTOP(":?4")
+			IF_NOT_DESKTOP(":?2")
+			":l--s:s--l",
+			cmp_longopts,
+			&max_count
+	);
+#endif
 	argv += optind;
 
 	filename1 = *argv;

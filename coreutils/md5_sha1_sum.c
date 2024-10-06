@@ -6,31 +6,31 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config MD5SUM
-//config:	bool "md5sum (6.5 kb)"
+//config:	bool "md5sum (6.7 kb)"
 //config:	default y
 //config:	help
 //config:	Compute and check MD5 message digest
 //config:
 //config:config SHA1SUM
-//config:	bool "sha1sum (5.9 kb)"
+//config:	bool "sha1sum (6.7 kb)"
 //config:	default y
 //config:	help
 //config:	Compute and check SHA1 message digest
 //config:
 //config:config SHA256SUM
-//config:	bool "sha256sum (7 kb)"
+//config:	bool "sha256sum (8.2 kb)"
 //config:	default y
 //config:	help
 //config:	Compute and check SHA256 message digest
 //config:
 //config:config SHA512SUM
-//config:	bool "sha512sum (7.4 kb)"
+//config:	bool "sha512sum (7.3 kb)"
 //config:	default y
 //config:	help
 //config:	Compute and check SHA512 message digest
 //config:
 //config:config SHA3SUM
-//config:	bool "sha3sum (6.1 kb)"
+//config:	bool "sha3sum (6.3 kb)"
 //config:	default y
 //config:	help
 //config:	Compute and check SHA3 message digest
@@ -151,10 +151,12 @@ static unsigned char *hash_bin_to_hex(unsigned char *hash_value,
 	return (unsigned char *)hex_value;
 }
 
+#define BUFSZ (CONFIG_FEATURE_COPYBUF_KB < 4 ? 4096 : CONFIG_FEATURE_COPYBUF_KB * 1024)
+
 #if !ENABLE_SHA3SUM
-# define hash_file(f,w) hash_file(f)
+# define hash_file(b,f,w) hash_file(b,f)
 #endif
-static uint8_t *hash_file(const char *filename, unsigned sha3_width)
+static uint8_t *hash_file(unsigned char *in_buf, const char *filename, unsigned sha3_width)
 {
 	int src_fd, hash_len, count;
 	union _ctx_ {
@@ -227,8 +229,7 @@ static uint8_t *hash_file(const char *filename, unsigned sha3_width)
 	}
 
 	{
-		RESERVE_CONFIG_UBUFFER(in_buf, 4096);
-		while ((count = safe_read(src_fd, in_buf, 4096)) > 0) {
+		while ((count = safe_read(src_fd, in_buf, BUFSZ)) > 0) {
 			update(&context, in_buf, count);
 		}
 		hash_value = NULL;
@@ -238,7 +239,6 @@ static uint8_t *hash_file(const char *filename, unsigned sha3_width)
 			final(&context, in_buf);
 			hash_value = hash_bin_to_hex(in_buf, hash_len);
 		}
-		RELEASE_CONFIG_BUFFER(in_buf);
 	}
 
 	if (src_fd != STDIN_FILENO) {
@@ -251,6 +251,7 @@ static uint8_t *hash_file(const char *filename, unsigned sha3_width)
 int md5_sha1_sum_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 {
+	unsigned char *in_buf;
 	int return_value = EXIT_SUCCESS;
 	unsigned flags;
 #if ENABLE_SHA3SUM
@@ -279,6 +280,12 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 	if (!*argv)
 		*--argv = (char*)"-";
 
+	/* The buffer is not alloc/freed for each input file:
+	 * for big values of COPYBUF_KB, this helps to keep its pages
+	 * pre-faulted and possibly even fully cached on local CPU.
+	 */
+	in_buf = xmalloc(BUFSZ);
+
 	do {
 		if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK && (flags & FLAG_CHECK)) {
 			FILE *pre_computed_stream;
@@ -293,12 +300,8 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 				char *filename_ptr;
 
 				count_total++;
-				filename_ptr = strstr(line, "  ");
-				/* handle format for binary checksums */
-				if (filename_ptr == NULL) {
-					filename_ptr = strstr(line, " *");
-				}
-				if (filename_ptr == NULL) {
+				filename_ptr = strchr(line, ' ');
+				if (!filename_ptr) {
 					if (flags & FLAG_WARN) {
 						bb_simple_error_msg("invalid format");
 					}
@@ -307,12 +310,17 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 					free(line);
 					continue;
 				}
-				*filename_ptr = '\0';
-				filename_ptr += 2;
+				*filename_ptr++ = '\0';
+				/* coreutils 9.1 allows "HASH FILENAME" format,
+				 * with only one space. Skip the 'correct'
+				 * "  " or " *" delimiter if it is there:
+				 */
+				if (*filename_ptr == ' ' || *filename_ptr == '*')
+					filename_ptr++;
 
-				hash_value = hash_file(filename_ptr, sha3_width);
+				hash_value = hash_file(in_buf, filename_ptr, sha3_width);
 
-				if (hash_value && (strcmp((char*)hash_value, line) == 0)) {
+				if (hash_value && (strcasecmp((char*)hash_value, line) == 0)) {
 					if (!(flags & FLAG_SILENT))
 						printf("%s: OK\n", filename_ptr);
 				} else {
@@ -339,7 +347,7 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 			}
 			fclose_if_not_stdin(pre_computed_stream);
 		} else {
-			uint8_t *hash_value = hash_file(*argv, sha3_width);
+			uint8_t *hash_value = hash_file(in_buf, *argv, sha3_width);
 			if (hash_value == NULL) {
 				return_value = EXIT_FAILURE;
 			} else {

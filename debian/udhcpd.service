@@ -1,0 +1,14 @@
+[Unit]
+Description=Busybox udhcpd DHCP daemon
+Documentation=man:udhcpd(8)
+After=network.target
+
+[Service]
+Environment=DHCPD_OPTS="-S"
+EnvironmentFile=-/etc/default/udhcpd
+Type=forking
+ExecStart=/usr/sbin/udhcpd $DHCPD_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config UNSHARE
-//config:	bool "unshare (7.2 kb)"
+//config:	bool "unshare (7.3 kb)"
 //config:	default y
 //config:	depends on !NOMMU
 //config:	select LONG_OPTS
@@ -120,7 +120,7 @@ enum {
 	NS_USR_POS, /* OPT_user, NS_USR_POS, and ns_list[] index must match! */
 	NS_COUNT,
 };
-static const struct namespace_descr ns_list[] = {
+static const struct namespace_descr ns_list[] ALIGN_INT = {
 	{ CLONE_NEWNS,   "mnt"  },
 	{ CLONE_NEWUTS,  "uts"  },
 	{ CLONE_NEWIPC,  "ipc"  },

@@ -1,0 +1,9 @@
+[Unit]
+Description=Busybox Kernel Logging Service
+Documentation=man:klogd(1)
+
+[Service]
+ExecStart=/sbin/klogd -n
+
+[Install]
+WantedBy=multi-user.target

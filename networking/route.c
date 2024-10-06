@@ -25,7 +25,7 @@
  * remove ridiculous amounts of bloat.
  */
 //config:config ROUTE
-//config:	bool "route (8.7 kb)"
+//config:	bool "route (9 kb)"
 //config:	default y
 //config:	help
 //config:	Route displays or manipulates the kernel's IP routing tables.
@@ -702,7 +702,7 @@ int route_main(int argc UNUSED_PARAM, char **argv)
 #endif
 			bb_displayroutes(noresolve, opt & ROUTE_OPT_e);
 
-		fflush_stdout_and_exit(EXIT_SUCCESS);
+		fflush_stdout_and_exit_SUCCESS();
 	}
 
 	/* Check verb.  At the moment, must be add, del, or delete. */

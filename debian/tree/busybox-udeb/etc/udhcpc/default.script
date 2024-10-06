@@ -8,17 +8,14 @@ comma_separate() {
 }
 
 do_resolv_conf() {
-	local cfg=/etc/resolv.conf
-
-	if [ -n "$domain" ] || [ -n "$dns" ]; then
-		echo -n > $cfg
-		if [ -n "$domain" ]; then
-			echo search $domain >> $cfg
-		fi
-
+	if [ -n "$domain$search$dns" ]; then
+	    {
+		[ ! "$domain" ] || echo domain $domain
+		[ ! "$search" ] || echo search $search
 		for i in $dns ; do
-			echo nameserver $i >> $cfg
+			echo nameserver $i
 		done
+	    } > /etc/resolv.conf
 	fi
 }
 

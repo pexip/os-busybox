@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config HEAD
-//config:	bool "head (3.8 kb)"
+//config:	bool "head (4 kb)"
 //config:	default y
 //config:	help
 //config:	head is used to print the first specified number of lines
@@ -76,7 +76,7 @@ print_except_N_last_bytes(FILE *fp, unsigned count)
 {
 	unsigned char *circle = xmalloc(++count);
 	unsigned head = 0;
-	for(;;) {
+	for (;;) {
 		int c;
 		c = getc(fp);
 		if (c == EOF)
@@ -105,7 +105,7 @@ print_except_N_last_lines(FILE *fp, unsigned count)
 {
 	char **circle = xzalloc((++count) * sizeof(circle[0]));
 	unsigned head = 0;
-	for(;;) {
+	for (;;) {
 		char *c;
 		c = xmalloc_fgets(fp);
 		if (!c)
@@ -127,7 +127,7 @@ print_except_N_last_lines(FILE *fp, unsigned count)
 	}
  ret:
 	head = 0;
-	for(;;) {
+	for (;;) {
 		free(circle[head++]);
 		if (head == count)
 			break;

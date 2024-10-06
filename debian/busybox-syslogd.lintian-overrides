@@ -1,0 +1,2 @@
+busybox-syslogd: unusual-interpreter /usr/bin/busybox [etc/init.d/busybox-klogd]
+busybox-syslogd: unusual-interpreter /usr/bin/busybox [etc/init.d/busybox-syslogd]
