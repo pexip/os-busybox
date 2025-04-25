@@ -1,1 +1,3 @@
+b/static/busybox usr/bin/
+b/static/docs/busybox.1 usr/share/man/man1/
 debian/tree/busybox/* /

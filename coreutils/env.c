@@ -24,7 +24,7 @@
  * - use xfunc_error_retval
  */
 //config:config ENV
-//config:	bool "env (4 kb)"
+//config:	bool "env (4.3 kb)"
 //config:	default y
 //config:	help
 //config:	env is used to set an environment variable and run
@@ -100,7 +100,7 @@ int env_main(int argc UNUSED_PARAM, char **argv)
 		}
 	}
 
-	fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit_SUCCESS();
 }
 
 /*

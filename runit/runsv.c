@@ -28,7 +28,7 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 
 //config:config RUNSV
-//config:	bool "runsv (7.8 kb)"
+//config:	bool "runsv (8.2 kb)"
 //config:	default y
 //config:	help
 //config:	runsv starts and monitors a service and optionally an appendant log
@@ -700,7 +700,7 @@ int runsv_main(int argc UNUSED_PARAM, char **argv)
 
 		if (svd[0].sd_want == W_EXIT && svd[0].state == S_DOWN) {
 			if (svd[1].pid == 0)
-				_exit(EXIT_SUCCESS);
+				_exit_SUCCESS();
 			if (svd[1].sd_want != W_EXIT) {
 				svd[1].sd_want = W_EXIT;
 				/* stopservice(&svd[1]); */

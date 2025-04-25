@@ -6,7 +6,7 @@
  * Contact me: vda.linux@googlemail.com
  */
 //config:config NMETER
-//config:	bool "nmeter (11 kb)"
+//config:	bool "nmeter (12 kb)"
 //config:	default y
 //config:	help
 //config:	Prints selected system stats continuously, one line per update.
@@ -27,6 +27,8 @@
 //usage:     "\n		(displays: S:system U:user N:niced D:iowait I:irq i:softirq)"
 //usage:     "\n %[nINTERFACE]	Network INTERFACE"
 //usage:     "\n %m		Allocated memory"
+//usage:     "\n %[md]		Dirty file-backed memory"
+//usage:     "\n %[mw]		Memory being written to storage"
 //usage:     "\n %[mf]		Free memory"
 //usage:     "\n %[mt]		Total memory"
 //usage:     "\n %s		Allocated swap"
@@ -57,9 +59,9 @@
 
 typedef unsigned long long ullong;
 
-enum {  /* Preferably use powers of 2 */
+enum {
 	PROC_MIN_FILE_SIZE = 256,
-	PROC_MAX_FILE_SIZE = 16 * 1024,
+	PROC_MAX_FILE_SIZE = 64 * 1024, /* 16k was a bit too small for a 128-CPU machine */
 };
 
 typedef struct proc_file {
@@ -68,7 +70,7 @@ typedef struct proc_file {
 	smallint last_gen;
 } proc_file;
 
-static const char *const proc_name[] = {
+static const char *const proc_name[] ALIGN_PTR = {
 	"stat",		// Must match the order of proc_file's!
 	"loadavg",
 	"net/dev",
@@ -174,7 +176,10 @@ static void readfile_z(proc_file *pf, const char* fname)
 	close(fd);
 	if (rdsz > 0) {
 		if (rdsz == sz-1 && sz < PROC_MAX_FILE_SIZE) {
-			sz *= 2;
+			if (sz < 4 * 1024)
+				sz *= 2;
+			else
+				sz += 4 * 1024;
 			buf = xrealloc(buf, sz);
 			goto again;
 		}
@@ -208,7 +213,7 @@ enum conv_type {
 // Reads decimal values from line. Values start after key, for example:
 // "cpu  649369 0 341297 4336769..." - key is "cpu" here.
 // Values are stored in vec[].
-// posbits is a bit lit of positions we are interested in.
+// posbits is a bit list of positions we are interested in.
 // for example: 00100110 - we want 1st, 2nd and 5th value.
 // posbits.bit0 encodes conversion type.
 static int rdval(const char* p, const char* key, ullong *vec, long posbits)
@@ -513,7 +518,7 @@ static void FAST_FUNC collect_blk(blk_stat *s)
 		return;
 	}
 
-	for (i=0; i<2; i++) {
+	for (i = 0; i < 2; i++) {
 		ullong old = s->old[i];
 		if (data[i] < old) old = data[i];		//sanitize
 		s->old[i] = data[i];
@@ -595,7 +600,7 @@ static void FAST_FUNC collect_if(if_stat *s)
 		return;
 	}
 
-	for (i=0; i<4; i++) {
+	for (i = 0; i < 4; i++) {
 		ullong old = s->old[i];
 		if (data[i] < old) old = data[i];		//sanitize
 		s->old[i] = data[i];
@@ -661,13 +666,31 @@ S_STAT_END(mem_stat)
 //Hugepagesize:     4096 kB
 static void FAST_FUNC collect_mem(mem_stat *s)
 {
-	ullong m_total = 0;
-	ullong m_free = 0;
-	ullong m_bufs = 0;
-	ullong m_cached = 0;
-	ullong m_slab = 0;
+	ullong m_total;
+	ullong m_free;
+	ullong m_bufs;
+	ullong m_cached;
+	ullong m_slab;
 
-	if (rdval(get_file(&proc_meminfo), "MemTotal:", &m_total, 1 << 1)) {
+	const char *meminfo = get_file(&proc_meminfo);
+
+	if (s->opt == 'd' /* dirty page cache */
+	 || s->opt == 'w' /* under writeback */
+	) {
+		m_total = 0; /* temporary reuse m_total */
+		if (rdval(meminfo,
+				(s->opt == 'd' ? "Dirty:" : "Writeback:"),
+				&m_total, 1 << 1)
+		) {
+			put_question_marks(4);
+			return;
+		}
+		scale(m_total << 10);
+		return;
+	}
+
+	m_total = 0;
+	if (rdval(meminfo, "MemTotal:", &m_total, 1 << 1)) {
 		put_question_marks(4);
 		return;
 	}
@@ -676,10 +699,14 @@ static void FAST_FUNC collect_mem(mem_stat *s)
 		return;
 	}
 
-	if (rdval(proc_meminfo.file, "MemFree:", &m_free  , 1 << 1)
-	 || rdval(proc_meminfo.file, "Buffers:", &m_bufs  , 1 << 1)
-	 || rdval(proc_meminfo.file, "Cached:",  &m_cached, 1 << 1)
-	 || rdval(proc_meminfo.file, "Slab:",    &m_slab  , 1 << 1)
+	m_free = 0;
+	m_bufs = 0;
+	m_cached = 0;
+	m_slab = 0;
+	if (rdval(meminfo, "MemFree:", &m_free  , 1 << 1)
+	 || rdval(meminfo, "Buffers:", &m_bufs  , 1 << 1)
+	 || rdval(meminfo, "Cached:",  &m_cached, 1 << 1)
+	 || rdval(meminfo, "Slab:",    &m_slab  , 1 << 1)
 	) {
 		put_question_marks(4);
 		return;
@@ -958,6 +985,15 @@ int nmeter_main(int argc UNUSED_PARAM, char **argv)
 
 	xgettimeofday(&G.start);
 	G.tv = G.start;
+
+	// Move back start of monotonic time a bit, to syncronize fractionals of %T and %t:
+	// nmeter -d500 '%6T %6t'
+	// 00:00:00.000161 12:32:07.500161
+	// 00:00:00.500282 12:32:08.000282
+	// 00:00:01.000286 12:32:08.500286
+	if (G.delta > 0)
+		G.start.tv_usec -= (G.start.tv_usec % (unsigned)G.delta);
+
 	while (1) {
 		collect_info(first);
 		put_c(G.final_char);
@@ -972,6 +1008,15 @@ int nmeter_main(int argc UNUSED_PARAM, char **argv)
 			int rem;
 			// can be commented out, will sacrifice sleep time precision a bit
 			xgettimeofday(&G.tv);
+
+	// TODO: nmeter -d10000 '%6T %6t'
+	// 00:00:00.770333 12:34:44.770333
+	// 00:00:06.000088 12:34:50.000088
+	// 00:00:16.000094 12:35:00.000094
+	// 00:00:26.000275 12:35:10.000275
+	// we can't syncronize interval to start close to 10 seconds for both
+	// %T and %t (as shown above), but what if there is only %T
+	// in format string? Maybe sync _it_ instead of %t in this case?
 			if (need_seconds)
 				rem = G.delta - ((ullong)G.tv.tv_sec*1000000 + G.tv.tv_usec) % G.deltanz;
 			else

@@ -9,7 +9,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config WATCHDOG
-//config:	bool "watchdog (5.3 kb)"
+//config:	bool "watchdog (5.7 kb)"
 //config:	default y
 //config:	help
 //config:	The watchdog utility is used with hardware or software watchdog
@@ -76,7 +76,7 @@ static void shutdown_on_signal(int sig UNUSED_PARAM)
 {
 	remove_pidfile_std_path_and_ext("watchdog");
 	shutdown_watchdog();
-	_exit(EXIT_SUCCESS);
+	_exit_SUCCESS();
 }
 
 static void watchdog_open(const char* device)

@@ -37,12 +37,13 @@ case $1 in
 	fi
 
 	# Update resolver configuration file
-	[ -n "$domain" ] && R="domain $domain" || R=""
-	for i in $dns; do
-	    R="$R
-nameserver $i"
-	done
-
+	R="$(
+	    [ ! "$domain" ] || echo domain $domain
+	    [ ! "$search" ] || echo search $search
+	    for i in $dns; do
+		echo nameserver $i
+	    done
+	)"
 	if [ -x /sbin/resolvconf ]; then
 	    echo "$R" | resolvconf -a "$interface.udhcpc"
 	else

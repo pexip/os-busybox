@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config NICE
-//config:	bool "nice (2.1 kb)"
+//config:	bool "nice (2.3 kb)"
 //config:	default y
 //config:	help
 //config:	nice runs a program with modified scheduling priority.
@@ -33,7 +33,7 @@ int nice_main(int argc UNUSED_PARAM, char **argv)
 
 	if (!*++argv) { /* No args, so (GNU) output current nice value. */
 		printf("%d\n", old_priority);
-		fflush_stdout_and_exit(EXIT_SUCCESS);
+		fflush_stdout_and_exit_SUCCESS();
 	}
 
 	adjustment = 10;  /* Set default adjustment. */

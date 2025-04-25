@@ -4,7 +4,7 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 //config:config HEXEDIT
-//config:	bool "hexedit (21 kb)"
+//config:	bool "hexedit (15 kb)"
 //config:	default y
 //config:	help
 //config:	Edit file in hexadecimal.
@@ -292,7 +292,7 @@ int hexedit_main(int argc UNUSED_PARAM, char **argv)
 		fflush_all();
 		G.in_read_key = 1;
 		if (!bb_got_signal)
-			key = read_key(STDIN_FILENO, G.read_key_buffer, -1);
+			key = safe_read_key(STDIN_FILENO, G.read_key_buffer, -1);
 		G.in_read_key = 0;
 		if (bb_got_signal)
 			key = CTRL('X');

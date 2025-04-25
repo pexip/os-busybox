@@ -8,7 +8,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config RESET
-//config:	bool "reset (345 bytes)"
+//config:	bool "reset (676 bytes)"
 //config:	default y
 //config:	help
 //config:	This program is used to reset the terminal screen, if it
@@ -21,7 +21,7 @@
 //usage:#define reset_trivial_usage
 //usage:       ""
 //usage:#define reset_full_usage "\n\n"
-//usage:       "Reset the screen"
+//usage:       "Reset terminal (ESC codes) and termios (signals, buffering, echo)"
 
 /* "Standard" version of this tool is in ncurses package */
 
@@ -36,7 +36,7 @@ int stty_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int reset_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int reset_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 {
-	static const char *const args[] = {
+	static const char *const args[] ALIGN_PTR = {
 		"stty", "sane", NULL
 	};
 

@@ -1,3 +1,205 @@
+busybox (1:1.37.0-4) unstable; urgency=medium
+
+  * d/control: use Static-Built-Using for busybox-static, not Built-Using
+  * fix-od-and-hexdump-tests-on-big-endian-hosts.patch: v2
+    (implement it a bit differently, fix bug in v1)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 06 Oct 2024 14:30:47 +0300
+
+busybox (1:1.37.0-3) unstable; urgency=medium
+
+  * d/patches: +fix-od-and-hexdump-tests-on-big-endian-hosts.patch
+    to fix tests failure on big-endian hosts
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 06 Oct 2024 13:35:45 +0300
+
+busybox (1:1.37.0-2) unstable; urgency=medium
+
+  * libbb-sha-add-missing-sha-NI-guard.patch - fix ftbfs on !x86
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 06 Oct 2024 11:09:29 +0300
+
+busybox (1:1.37.0-1) unstable; urgency=medium
+
+  * new upstream release 1.37.0
+    Closes: CVE-2021-42380 (awk use-after-realloc)
+    Cloese: CVE-2023-42363 (awk use-after-free)
+  * d/patches/: refresh platform-linux.diff and version.patch
+  * d/patches/: remove:
+    - install-fix-chown-resetting-suid-sgid-bits-from-chmod.patch
+    - syslogd-daemonize-after-init-make-errs-visible.patch
+    - syslogd-decrease-stack-usage-50-bytes.patch
+    - syslogd-fix-breakage-caused-by-daemonize-_after_-ini.patch
+  * d/config/pkg/*: update configs:
+    - enable time64
+    - enable find exec-ok for regular and static builds
+    - enable getfattr for regular and static builds
+    - enable ip-link-can for regular and static builds
+    - enable feature udhcpd bootp
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 06 Oct 2024 10:20:49 +0300
+
+busybox (1:1.36.1-9) unstable; urgency=medium
+
+  * platform-linux.diff: udhcpc6 also depends on PLATFORM_LINUX
+    (fixes ftbfs on hurd)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 16 Jul 2024 13:51:14 +0300
+
+busybox (1:1.36.1-8) unstable; urgency=medium
+
+  * busybox-1.36.1-no-cbq.patch to disable CBQ which is dropped
+    from kernel in 6.8 (Closes: #1071648)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 16 Jul 2024 13:03:13 +0300
+
+busybox (1:1.36.1-7) unstable; urgency=medium
+
+  * udeb: remove all modutils (kmod-udeb provides better alternatives)
+    (Closes: #1060134)
+  * deb, static, udeb: provide install applet (Closes: #1069864)
+  * udhcpc/default.script: recognize $search dhcp parameter too,
+    in addition to $domain (and simplify these parts a bit)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 16 May 2024 21:49:03 +0300
+
+busybox (1:1.36.1-6) unstable; urgency=medium
+
+  [ Michael Tokarev ]
+  * d/rules: override-dh_installsystemd: s/-indep//
+  * d/busybox-syslogd.{service,init}: umask 026, not 024
+  * adjust paths to busybox binary after move
+    /bin/busybox => /usr/bin/busybox
+  * Upload to unstable.
+
+  [ Chris Boot ]
+  * Update binary path in lintian overrides.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 30 Nov 2023 15:32:46 +0300
+
+busybox (1:1.36.1-6~exp.1) experimental; urgency=medium
+
+  * Coordinated move of binaries into /usr.
+  * Upload to experimental.
+
+ -- Chris Boot <bootc@debian.org>  Thu, 23 Nov 2023 12:35:38 +0000
+
+busybox (1:1.36.1-5) unstable; urgency=medium
+
+  * config:
+   - deb: turn off embedded scripts (not used anyway)
+   - deb: enable minimal dpkg (the same as in static config) (+lintian tag)
+   - deb: enable passwd, su, sulogin (the same as in static config)
+   - deb: enable ed (the same as in static config)
+   - deb: enable cron & crontab (the same as in static config)
+   - deb: enable tunctl (the same as in static config)
+   - deb: set ifupdown udhcpc options to -R -n (the same as in static config)
+   - deb: enable tc (traffic control) applet, the same as in static build
+   - deb: enable ifupdown options like of static build
+   - static: enable tftp progress bar (the same as in deb config)
+   At this point, deb&static configs are almost the same, with the differences:
+    - static (&libgcc), prefer_applets, standalone_shell, bb_passwd & bb_shadow
+    - deb has no blkid (#1023501) and no telnetd (#881626)
+   - deb,static: disable unusual ipneigh applet (but keep ip neigh)
+   - deb,static,udeb: enable udhcpc6 (#1036446)
+   - deb,static: enable wget timeout (-T) option
+  * spelling.diff: forward upstream
+  * d/*.lintian-overrides: +spelling-error-in-binary iif if [bin/busybox]
+    (this is Input InterFace)
+  * added udhcpd.service
+  * update tags for debian/patches/syslogd-option_mask32.patch
+  * busybox-syslogd*.service: update Documentation: settings
+  * make busybox-syslogd socket-activated to work correctly under systemd
+    (syslogd-make-it-optionally-systemd-socket-activated.patch,
+    busybox-syslogd.service changes)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 18 Nov 2023 19:53:06 +0300
+
+busybox (1:1.36.1-4) unstable; urgency=medium
+
+  * Revert "Revert recent changes that have broken syslogd in d-i."
+    Thank you Steve, others for the good work and patience!
+  * syslogd-fix-breakage-caused-by-daemonize-_after_-ini.patch
+    (use upstream patch instead of syslogd-avoid-nulling-devlog.patch.
+    it looks like upstream rewrites patch authorship with their own)
+  * syslogd-option_mask32.patch (Actually fixes #1039710 with remote logging)
+  * syslogd: make logfiles owned by root:adm mode 0640
+  * syslog.conf: match current rsyslog.conf
+  * install-fix-chown-resetting-suid-sgid-bits-from-chmod.patch
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 13 Nov 2023 12:12:27 +0300
+
+busybox (1:1.36.1-3.1) unstable; urgency=medium
+
+  * NMU
+  * Revert recent changes that have broken syslogd in d-i.
+    Closes: #1039710
+
+ -- Steve McIntyre <93sam@debian.org>  Thu, 03 Aug 2023 21:22:44 +0100
+
+busybox (1:1.36.1-3) unstable; urgency=medium
+
+  * syslogd-avoid-nulling-devlog.patch - fix overriding dev/log
+    socket with dev/null in previous (upstream) patch.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 15 Jun 2023 00:01:54 +0300
+
+busybox (1:1.36.1-2) unstable; urgency=medium
+
+  * replace syslog init patch with better version from upstream:
+    syslogd-decrease-stack-usage-50-bytes.patch (prep)
+    syslogd-daemonize-after-init-make-errs-visible.patch
+  * platform-linux.diff: nbd is also linux-only
+  * udhcpd: remove obsolete copy of udhcpd.conf,
+    use one from examples/udhcp/udhcpd.conf
+  * remove "remaining" parameter from udhcpd.conf.5 (Closes: #891757)
+  * d/*.lintian-overrides: add #!/bin/busybox overrides for the init scripts
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 14 Jun 2023 23:10:23 +0300
+
+busybox (1:1.36.1-1) unstable; urgency=medium
+
+  * new upstream release 1.36.0 (and bugfix release 1.36.1)
+    (Closes: CVE-2022-30065, use after free in awk)
+  * use-libresolv-on-non-linux-too.patch: remove for now
+    (upstream did it in a different, incomplete way)
+  * spelling.diff: remove hunks which are applied upstream
+  * fix-non-linux-build.patch: remove hunks which are applied upstream
+  * refresh configs: enable ash sleep builtin, sha1/sha256 hwaccel,
+    loop configure ioctl.
+    New applets (tsort, seedrngm, tree) are not enabled
+  * d/control: remove lsb-base from Depends of busybox-syslogd & udhcpd
+    lsb-base was in Depends becase it provided /lib/lsb/init-functions
+    file for the sysvinit initscripts in these packages. Now, sysvinit-utils
+    has eaten this file. But this package is essential, so there's no need
+    to depend on things providing init-functions anymore.
+  * move udhcpd files from debian/tree/udhcpd/ to debian/
+  * deb,static: enable nbd-client applet (Closes: #893843)
+  * d/control: bump Standards-Version to 4.6.2 (no changes)
+  * deb,static: enable nbd-client applet (Closes: #893843)
+  * syslogd:
+   - deb,static: enable syslog.conf and log rotation support for syslogd
+     (Closes: #857760)
+   - +syslogd-fork-after-init-not-before.patch:
+     make syslogd init failures and error messages visible
+   - busybox-syslogd package:
+     - rewrite busybox-syslogd.init and busybox-klogd.init:
+     - provide simple busybox-syslogd.service and busybox-klogd.service
+       for systemd (Closes: #907189)
+     - ship simple /etc/syslog.conf and syslog.conf.txt in docs
+  * d/control: fix udhcpc & udhcpd names
+  * udhcpc & udhcpd: make them Architecture: all instead of (linux-)any.
+    The packages does not have any architecture-dependent parts at all
+    (just the startup scripts), the only reason to make them arch-any is
+    to exclude non-linux architectures.  But it seems it isn't worth the
+    efforts really. Both packages becomes installable on non-linux but
+    will not work.
+  * udhcpd: rewrite the startup script
+  * d/rules: adjust arch/indep rules so it build just the required parts,
+    simplify install/link rules
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 08 Jun 2023 11:36:09 +0300
+
 busybox (1:1.35.0-4+pexip24u12) pexip; urgency=medium
 
   * busybox-links: pretend to provide a modern sysvinit-utils

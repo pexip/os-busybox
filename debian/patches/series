@@ -13,8 +13,16 @@ install-readlink-in-bin.patch
 spelling.diff
 platform-linux.diff
 fix-non-linux-build.patch
-use-libresolv-on-non-linux-too.patch
 
+#
+syslogd-option_mask32.patch
+syslogd-make-it-optionally-systemd-socket-activated.patch
+#
+busybox-1.36.1-no-cbq.patch
+libbb-sha-add-missing-sha-NI-guard.patch
+fix-od-and-hexdump-tests-on-big-endian-hosts.patch
+
+# Pexip patches
 cmp-long-options.patch
 readlink-em-options.patch
 sort-long-options.patch

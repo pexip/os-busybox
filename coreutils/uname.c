@@ -44,7 +44,7 @@
  *  Fix handling of -a to not print "unknown", add -o and -i support.
  */
 //config:config UNAME
-//config:	bool "uname (3.9 kb)"
+//config:	bool "uname (4.2 kb)"
 //config:	default y
 //config:	help
 //config:	uname is used to print system information.
@@ -59,7 +59,7 @@
 //config:
 //can't use "ARCH" for this applet, all hell breaks loose in build system :)
 //config:config BB_ARCH
-//config:	bool "arch (1.1 kb)"
+//config:	bool "arch (1.4 kb)"
 //config:	default y
 //config:	help
 //config:	Same as uname -m.
@@ -209,5 +209,5 @@ int uname_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 #endif
 	}
 
-	fflush_stdout_and_exit(EXIT_SUCCESS); /* coreutils-6.9 compat */
+	fflush_stdout_and_exit_SUCCESS(); /* coreutils-6.9 compat */
 }

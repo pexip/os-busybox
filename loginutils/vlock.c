@@ -16,7 +16,7 @@
  * It now works with md5, sha1, etc passwords.
  */
 //config:config VLOCK
-//config:	bool "vlock (17 kb)"
+//config:	bool "vlock (18 kb)"
 //config:	default y
 //config:	help
 //config:	Build the "vlock" applet which allows you to lock (virtual) terminals.
@@ -128,5 +128,5 @@ int vlock_main(int argc UNUSED_PARAM, char **argv)
 	ioctl(STDIN_FILENO, VT_SETMODE, &ovtm);
 #endif
 	tcsetattr_stdin_TCSANOW(&oterm);
-	fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit_SUCCESS();
 }

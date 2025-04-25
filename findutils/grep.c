@@ -18,19 +18,19 @@
  * (C) 2006 Jac Goudsmit added -o option
  */
 //config:config GREP
-//config:	bool "grep (8.6 kb)"
+//config:	bool "grep (8.9 kb)"
 //config:	default y
 //config:	help
 //config:	grep is used to search files for a specified pattern.
 //config:
 //config:config EGREP
-//config:	bool "egrep (7.8 kb)"
+//config:	bool "egrep (8 kb)"
 //config:	default y
 //config:	help
 //config:	Alias to "grep -E".
 //config:
 //config:config FGREP
-//config:	bool "fgrep (7.8 kb)"
+//config:	bool "fgrep (8 kb)"
 //config:	default y
 //config:	help
 //config:	Alias to "grep -F".
@@ -470,7 +470,7 @@ static int grep_file(FILE *file)
 					 * "exit immediately with zero status
 					 * if any match is found,
 					 * even if errors were detected" */
-					exit(EXIT_SUCCESS);
+					exit_SUCCESS();
 				}
 				/* -l "print filenames with matches": stop after the first match */
 				if (option_mask32 & OPT_l) {

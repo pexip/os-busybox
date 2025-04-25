@@ -9,7 +9,7 @@ XSBC-Pexip-Original-Uploaders:
  Michael Tokarev <mjt@tls.msk.ru>,
 Build-Depends: debhelper-compat (= 13),
  zip <!nocheck>
-Standards-Version: 4.1.5
+Standards-Version: 4.6.2
 Vcs-Git: https://salsa.debian.org/installer-team/busybox.git
 Vcs-Browser: https://salsa.debian.org/installer-team/busybox
 Homepage: http://www.busybox.net
@@ -33,7 +33,7 @@ Description: Tiny utilities for small and embedded systems
  This package installs the BusyBox binary but does not install
  symlinks for any of the supported utilities. Some of the utilities
  can be used in the system by installing the busybox-syslogd,
- busybox-udhcpc or busybox-udhcpd packages.
+ udhcpc or udhcpd packages.
 
 Package: busybox-links
 Architecture: any
@@ -66,7 +66,7 @@ Description: Tiny utilities for small and embedded systems (links)
 
 Package: busybox-static
 Architecture: any
-Built-Using: ${built-using}
+Static-Built-Using: ${built-using}
 Depends: ${misc:Depends}
 Conflicts: busybox
 Replaces: busybox
@@ -111,7 +111,6 @@ Architecture: all
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
- lsb-base,
  ${misc:Depends},
 Provides: linux-kernel-log-daemon, system-log-daemon
 Conflicts: linux-kernel-log-daemon, system-log-daemon
@@ -136,15 +135,15 @@ Description: Provides syslogd and klogd using busybox
 
 Package: udhcpc
 Section: net
-Architecture: linux-any
+# busybox dhcpc is linux-specific
+Architecture: all
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
  ${misc:Depends},
-Multi-Arch: same
 Description: Provides the busybox DHCP client implementation
  Busybox contains a very small yet fully functional RFC compliant DHCP
- client formerly known as udhcpc.
+ client udhcpc.
  .
  This package contains the glue to use the busybox udhcpc as DHCP
  client in the system by providing the appropriate symbolic links and
@@ -152,16 +151,16 @@ Description: Provides the busybox DHCP client implementation
 
 Package: udhcpd
 Section: net
-Architecture: linux-any
+# busybox dhcpd is linux-specific
+Architecture: all
 Pre-Depends: ${misc:Pre-Depends}
 Depends:
  busybox (>> ${source:Upstream-Version}) | busybox-static (>> ${source:Upstream-Version}),
- lsb-base,
  ${misc:Depends},
 Provides: dhcpd
 Description: Provides the busybox DHCP server implementation
  Busybox contains a very small yet fully function RFC compliant DHCP
- server formerly known as udhcpd.
+ server udhcpd.
  .
  This package contains the glue to use the busybox udhcpd as DHCP
  server in the system by providing the appropriate symbolic links and
