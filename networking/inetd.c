@@ -1208,7 +1208,7 @@ static void clean_up_and_exit(int sig UNUSED_PARAM)
 			close(sep->se_fd);
 	}
 	remove_pidfile_std_path_and_ext("inetd");
-	exit(EXIT_SUCCESS);
+	exit_SUCCESS();
 }
 
 int inetd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -1449,7 +1449,7 @@ int inetd_main(int argc UNUSED_PARAM, char **argv)
 				else
 					sep->se_builtin->bi_dgram_fn(ctrl, sep);
 				if (pid) /* we did fork */
-					_exit(EXIT_FAILURE);
+					_exit_FAILURE();
 				maybe_close(accepted_fd);
 				continue; /* -> check next fd in fd set */
 			}
@@ -1530,7 +1530,7 @@ int inetd_main(int argc UNUSED_PARAM, char **argv)
 			/* eat packet in udp case */
 			if (sep->se_socktype != SOCK_STREAM)
 				recv(0, line, LINE_SIZE, MSG_DONTWAIT);
-			_exit(EXIT_FAILURE);
+			_exit_FAILURE();
 		} /* for (sep = servtab...) */
 	} /* for (;;) */
 }
@@ -1538,7 +1538,7 @@ int inetd_main(int argc UNUSED_PARAM, char **argv)
 #if ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_ECHO \
  || ENABLE_FEATURE_INETD_SUPPORT_BUILTIN_DISCARD
 # if !BB_MMU
-static const char *const cat_args[] = { "cat", NULL };
+static const char *const cat_args[] ALIGN_PTR = { "cat", NULL };
 # endif
 #endif
 

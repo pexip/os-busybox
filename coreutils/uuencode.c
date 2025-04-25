@@ -8,7 +8,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config UUENCODE
-//config:	bool "uuencode (4.4 kb)"
+//config:	bool "uuencode (4.7 kb)"
 //config:	default y
 //config:	help
 //config:	uuencode is used to uuencode a file.
@@ -78,5 +78,5 @@ int uuencode_main(int argc UNUSED_PARAM, char **argv)
 	}
 	printf(tbl == bb_uuenc_tbl_std ? "\n`\nend\n" : "\n====\n");
 
-	fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit_SUCCESS();
 }

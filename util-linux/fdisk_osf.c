@@ -383,7 +383,7 @@ bsd_select(void)
 
 	if (xbsd_readlabel(NULL) == 0)
 		if (xbsd_create_disklabel() == 0)
-			exit(EXIT_SUCCESS);
+			exit_SUCCESS();
 
 #endif
 
@@ -411,7 +411,7 @@ bsd_select(void)
 		case 'q':
 			if (ENABLE_FEATURE_CLEAN_UP)
 				close_dev_fd();
-			exit(EXIT_SUCCESS);
+			exit_SUCCESS();
 		case 'r':
 			return;
 		case 's':
@@ -746,11 +746,12 @@ xbsd_write_bootstrap(void)
 		return;
 
 	e = d + sizeof(struct xbsd_disklabel);
-	for (p = d; p < e; p++)
+	for (p = d; p < e; p++) {
 		if (*p) {
 			printf("Bootstrap overlaps with disk label!\n");
-			exit(EXIT_FAILURE);
+			exit_FAILURE();
 		}
+	}
 
 	memmove(d, &dl, sizeof(struct xbsd_disklabel));
 

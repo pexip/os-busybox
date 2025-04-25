@@ -11,7 +11,7 @@
  * Major size reduction... over 50% (>1.5k) on i386.
  */
 //config:config CAL
-//config:	bool "cal (5.8 kb)"
+//config:	bool "cal (6.1 kb)"
 //config:	default y
 //config:	help
 //config:	cal is used to display a monthly calendar.
@@ -233,7 +233,7 @@ int cal_main(int argc UNUSED_PARAM, char **argv)
 		}
 	}
 
-	fflush_stdout_and_exit(EXIT_SUCCESS);
+	fflush_stdout_and_exit_SUCCESS();
 }
 
 /*

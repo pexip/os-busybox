@@ -6,7 +6,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 //config:config CHRT
-//config:	bool "chrt (4.7 kb)"
+//config:	bool "chrt (5.1 kb)"
 //config:	default y
 //config:	help
 //config:	Manipulate real-time attributes of a process.
@@ -110,7 +110,7 @@ int chrt_main(int argc UNUSED_PARAM, char **argv)
 		show_min_max(SCHED_RR);
 		show_min_max(SCHED_BATCH);
 		show_min_max(SCHED_IDLE);
-		fflush_stdout_and_exit(EXIT_SUCCESS);
+		fflush_stdout_and_exit_SUCCESS();
 	}
 	//if (opt & OPT_r)
 	//	policy = SCHED_RR; - default, already set

@@ -12,13 +12,13 @@
  * See RFC 1179 for protocol description.
  */
 //config:config LPR
-//config:	bool "lpr (9.9 kb)"
+//config:	bool "lpr (10 kb)"
 //config:	default y
 //config:	help
 //config:	lpr sends files (or standard input) to a print spooling daemon.
 //config:
 //config:config LPQ
-//config:	bool "lpq (9.9 kb)"
+//config:	bool "lpq (10 kb)"
 //config:	default y
 //config:	help
 //config:	lpq is a print spool queue examination and manipulation program.
@@ -78,8 +78,8 @@ static void get_response_or_say_and_die(int fd, const char *errmsg)
 	}
 }
 
-int lpqr_main(int argc, char *argv[]) MAIN_EXTERNALLY_VISIBLE;
-int lpqr_main(int argc UNUSED_PARAM, char *argv[])
+int lpqr_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+int lpqr_main(int argc UNUSED_PARAM, char **argv)
 {
 	enum {
 		OPT_P           = 1 << 0, // -P queue[@host[:port]]. If no -P is given use $PRINTER, then "lp@localhost:515"

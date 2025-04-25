@@ -1,5 +1,5 @@
 VERSION = 1
-PATCHLEVEL = 35
+PATCHLEVEL = 37
 SUBLEVEL = 0
 EXTRAVERSION =
 NAME = Unnamed
@@ -967,6 +967,7 @@ endif # CONFIG_MODULES
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += $(MODVERDIR) _install 0_lib
 CLEAN_FILES +=	busybox busybox_unstripped* busybox.links \
+		busybox*.suid busybox*.nosuid \
                 System.map .kernelrelease \
                 .tmp_kallsyms* .tmp_version .tmp_busybox* .tmp_System.map
 
@@ -1300,14 +1301,6 @@ quiet_cmd_rmdirs = $(if $(wildcard $(rm-dirs)),CLEAN   $(wildcard $(rm-dirs)))
 
 quiet_cmd_rmfiles = $(if $(wildcard $(rm-files)),CLEAN   $(wildcard $(rm-files)))
       cmd_rmfiles = rm -f $(rm-files)
-
-
-a_flags = -Wp,-MD,$(depfile) $(AFLAGS) $(AFLAGS_KERNEL) \
-	  $(NOSTDINC_FLAGS) $(CPPFLAGS) \
-	  $(modkern_aflags) $(EXTRA_AFLAGS) $(AFLAGS_$(*F).o)
-
-quiet_cmd_as_o_S = AS      $@
-cmd_as_o_S       = $(CC) $(a_flags) -c -o $@ $<
 
 # read all saved command lines
 
