@@ -1,8 +1,6 @@
-diff --git a/include/libbb.h b/include/libbb.h
-index a487828..cba4db4 100644
---- a/include/libbb.h
-+++ b/include/libbb.h
-@@ -1099,6 +1099,7 @@ char *smart_ulltoa5(unsigned long long ul, char buf[5], const char *scale) FAST_
+--- busybox.orig/include/libbb.h
++++ busybox/include/libbb.h
+@@ -1108,6 +1108,7 @@ char *smart_ulltoa5(unsigned long long u
  #define HUMAN_READABLE_MAX_WIDTH_STR "7"
  const char *make_human_readable_str(unsigned long long size,
  		unsigned long block_size, unsigned long display_unit) FAST_FUNC;
@@ -10,11 +8,9 @@ index a487828..cba4db4 100644
  /* Put a string of hex bytes ("1b2e66fe"...), return advanced pointer */
  char *bin2hex(char *dst, const char *src, int count) FAST_FUNC;
  /* Reverse */
-diff --git a/libbb/human_readable.c b/libbb/human_readable.c
-index 09221a1..a5d4ea2 100644
---- a/libbb/human_readable.c
-+++ b/libbb/human_readable.c
-@@ -184,3 +184,32 @@ char* FAST_FUNC smart_ulltoa4(unsigned long long ul, char buf[4], const char *sc
+--- busybox.orig/libbb/human_readable.c
++++ busybox/libbb/human_readable.c
+@@ -184,3 +184,32 @@ char* FAST_FUNC smart_ulltoa4(unsigned l
  	}
  	return buf + 4;
  }
@@ -47,8 +43,8 @@ index 09221a1..a5d4ea2 100644
 +
 +	return 0;
 +}
---- a/coreutils/du.c
-+++ b/coreutils/du.c
+--- busybox.orig/coreutils/du.c
++++ busybox/coreutils/du.c
 @@ -48,6 +48,7 @@
  //usage:       "Summarize disk space used for FILEs (or directories)\n"
  //usage:     "\n	-a	Show file sizes too"
@@ -57,7 +53,7 @@ index 09221a1..a5d4ea2 100644
  //usage:     "\n	-L	Follow all symlinks"
  //usage:     "\n	-H	Follow symlinks on command line"
  //usage:     "\n	-P	Don't follow any symlinks (default)"
-@@ -96,6 +97,7 @@
+@@ -96,6 +97,7 @@ static const char *du_long_opts =
  	IF_FEATURE_HUMAN_READABLE(
  	"human-readable\0"        No_argument       "h"
  	)
@@ -77,7 +73,7 @@ index 09221a1..a5d4ea2 100644
  };
  
  struct globals {
-@@ -250,6 +253,7 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+@@ -250,6 +253,7 @@ int du_main(int argc UNUSED_PARAM, char
  	unsigned long long total;
  	int slink_depth_save;
  	unsigned opt;
@@ -85,7 +81,7 @@ index 09221a1..a5d4ea2 100644
  
  	INIT_G();
  
-@@ -273,16 +277,18 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+@@ -273,16 +277,18 @@ int du_main(int argc UNUSED_PARAM, char
  #if ENABLE_FEATURE_HUMAN_READABLE
  #if ENABLE_FEATURE_DU_LONG_OPTIONS
  	opt = getopt32long(argv, "^"
@@ -110,7 +106,7 @@ index 09221a1..a5d4ea2 100644
  	);
  #endif
  	argv += optind;
-@@ -298,19 +304,27 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+@@ -298,19 +304,27 @@ int du_main(int argc UNUSED_PARAM, char
  	if (opt & OPT_k_kbytes) {
  		G.disp_unit = 1024;
  	}
@@ -144,7 +140,7 @@ index 09221a1..a5d4ea2 100644
  	);
  #endif
  	argv += optind;
-@@ -319,6 +333,12 @@ int du_main(int argc UNUSED_PARAM, char **argv)
+@@ -319,6 +333,12 @@ int du_main(int argc UNUSED_PARAM, char
  		G.disp_k = 1;
  	}
  # endif

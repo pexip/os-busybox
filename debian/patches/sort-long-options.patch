@@ -1,5 +1,5 @@
---- a/coreutils/sort.c
-+++ b/coreutils/sort.c
+--- busybox.orig/coreutils/sort.c
++++ busybox/coreutils/sort.c
 @@ -29,6 +29,11 @@
  //config:	The SuSv3 sort standard is available at:
  //config:	http://www.opengroup.org/onlinepubs/007904975/utilities/sort.html
@@ -12,7 +12,7 @@
  //config:config FEATURE_SORT_OPTIMIZE_MEMORY
  //config:	bool "Use less memory (but might be slower)"
  //config:	default n   # defaults to N since we are size-paranoid tribe
-@@ -126,6 +131,30 @@
+@@ -128,6 +133,30 @@ static const char sort_opt_str[] ALIGN1
   */
  #define OPT_STR (sort_opt_str + 1)
  
@@ -43,7 +43,7 @@
  #if ENABLE_FEATURE_SORT_BIG
  static char key_separator;
  
-@@ -429,10 +458,18 @@
+@@ -463,10 +492,18 @@ int sort_main(int argc UNUSED_PARAM, cha
  	xfunc_error_retval = 2;
  
  	/* Parse command line options */

@@ -1,6 +1,6 @@
---- a/shell/ash.c
-+++ b/shell/ash.c
-@@ -159,6 +159,7 @@
+--- busybox.orig/shell/ash.c
++++ busybox/shell/ash.c
+@@ -176,6 +176,7 @@
  //                      APPLET_ODDNAME:name  main location    suid_type     help
  //applet:IF_SH_IS_ASH(  APPLET_ODDNAME(sh,   ash, BB_DIR_BIN, BB_SUID_DROP, ash))
  //applet:IF_BASH_IS_ASH(APPLET_ODDNAME(bash, ash, BB_DIR_BIN, BB_SUID_DROP, ash))

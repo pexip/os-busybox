@@ -23,7 +23,6 @@ libbb-sha-add-missing-sha-NI-guard.patch
 fix-od-and-hexdump-tests-on-big-endian-hosts.patch
 
 # Pexip patches
-cmp-long-options.patch
 readlink-em-options.patch
 sort-long-options.patch
 
