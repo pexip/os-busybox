@@ -111,7 +111,7 @@
  		G.disp_unit = 1024;
  	}
 +	if (opt & OPT_B_block_size) {
-+		if (human_readable_to_uint(block_size, &G.disp_unit) != 0){
++		if (human_readable_to_uint(block_size, (long long unsigned int*)&G.disp_unit) != 0){
 +			printf("invalid --block-size argument '%s'\n", block_size);
 +			fflush_stdout_and_exit(1);
 +		}
