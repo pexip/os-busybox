@@ -1,3 +1,17 @@
+busybox (1:1.37.0-6) unstable; urgency=medium
+
+  * udeb config: remove wget applet
+    (wget-udeb is used for this for many years) (Closes: #1107392)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 08 Jun 2025 00:34:24 +0300
+
+busybox (1:1.37.0-5) unstable; urgency=medium
+
+  * d/control: switch from Static-Built-Using back to Built-Using
+    (Closes: #1106796)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 30 May 2025 20:03:19 +0300
+
 busybox (1:1.37.0-4) unstable; urgency=medium
 
   * d/control: use Static-Built-Using for busybox-static, not Built-Using

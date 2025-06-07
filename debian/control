@@ -35,7 +35,7 @@ Description: Tiny utilities for small and embedded systems
 
 Package: busybox-static
 Architecture: any
-Static-Built-Using: ${built-using}
+Built-Using: ${built-using}
 Depends: ${misc:Depends}
 Conflicts: busybox
 Replaces: busybox
