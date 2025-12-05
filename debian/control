@@ -45,9 +45,9 @@ Conflicts: bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
 Replaces: bash, bsdutils, coreutils, dash, diffutils, e2fsprogs, fdisk,
  findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,
  ncurses-bin, sed, sysvinit-utils, tzdata, util-linux
-Provides: awk, bash, bsdutils, coreutils (=8.32-4+b1pexip2), dash, diffutils, e2fsprogs, fdisk,
+Provides: awk, bash, bsdutils, coreutils (=9.7-3+pexip25u2), dash, diffutils, e2fsprogs, fdisk,
  findutils, grep, gzip, hostname, login, mawk, mount, ncurses-base,
- ncurses-bin, sed, sysvinit-utils (=3.06-4), tzdata, util-linux
+ ncurses-bin, sed, sysvinit-utils (= 3.14-4+pexip25u2), tzdata, util-linux
 Description: Tiny utilities for small and embedded systems (links)
  BusyBox combines tiny versions of many common UNIX utilities into a single
  small executable. It provides minimalist replacements for the most common
