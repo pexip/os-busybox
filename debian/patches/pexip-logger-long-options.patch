@@ -1,0 +1,46 @@
+Index: busybox/sysklogd/logger.c
+===================================================================
+--- busybox.orig/sysklogd/logger.c
++++ busybox/sysklogd/logger.c
+@@ -15,6 +15,10 @@
+ //config:	messages to the system log (i.e. the 'syslogd' utility) so
+ //config:	they can be logged. This is generally used to help locate
+ //config:	problems that occur within programs and scripts.
++//config:config FEATURE_LOGGER_LONG_OPTIONS
++//config:   bool "Enable long options"
++//config:   default n
++//config:   depends on LOGGER && LONG_OPTS
+ 
+ //applet:IF_LOGGER(APPLET(logger, BB_DIR_USR_BIN, BB_SUID_DROP))
+ 
+@@ -31,6 +35,14 @@
+ //usage:#define logger_example_usage
+ //usage:       "$ logger \"hello\"\n"
+ 
++#if ENABLE_FEATURE_LOGGER_LONG_OPTIONS
++static const char *logger_long_opts =
++   "stderr\0"      No_argument             "s"
++   "priority\0"    Required_argument       "p"
++   "tag\0"         Required_argument       "t"
++;
++#endif
++
+ /*
+  * Done in syslogd_and_logger.c:
+ #include "libbb.h"
+@@ -105,7 +117,15 @@ int logger_main(int argc UNUSED_PARAM, c
+ 	str_t = uid2uname_utoa(geteuid());
+ 
+ 	/* Parse any options */
++#if ENABLE_FEATURE_LOGGER_LONG_OPTIONS
++	opt = getopt32long(argv,
++	                   "p:st:",
++	                   logger_long_opts,
++	                   &str_p,
++	                   &str_t);
++#else
+ 	opt = getopt32(argv, "p:st:", &str_p, &str_t);
++#endif
+ 
+ 	if (opt & 0x2) /* -s */
+ 		i |= LOG_PERROR;

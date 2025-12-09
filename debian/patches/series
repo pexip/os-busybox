@@ -36,3 +36,4 @@ pexip-du-no-dereference.patch
 pexip-du-block-size.patch
 pexip-ionice-long-options.patch
 pexip-grep-long-options.patch
+pexip-logger-long-options.patch
