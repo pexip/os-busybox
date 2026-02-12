@@ -1,3 +1,6 @@
+Add -sparse argument (ignored) to busybox cp to support use in minimal
+environments which use apt and Debian packaging scripts
+
 diff --git a/coreutils/cp.c b/coreutils/cp.c
 index ee40af5..33c3753 100644
 --- a/coreutils/cp.c

@@ -1,3 +1,6 @@
+Add long options to busybox logger to support use in minimal
+environments which use apt and Debian packaging scripts
+
 Index: busybox/sysklogd/logger.c
 ===================================================================
 --- busybox.orig/sysklogd/logger.c

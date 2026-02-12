@@ -1,3 +1,6 @@
+Add long options to busybox sort to support use in minimal environments which
+use apt and Debian packaging scripts
+
 --- busybox.orig/coreutils/sort.c
 +++ busybox/coreutils/sort.c
 @@ -29,6 +29,11 @@

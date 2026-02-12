@@ -1,3 +1,6 @@
+Add the pager name to busybox more to support use in minimal environments
+which use apt and Debian packaging scripts
+
 --- a/util-linux/more.c
 +++ b/util-linux/more.c
 @@ -24,6 +24,7 @@

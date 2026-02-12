@@ -1,3 +1,6 @@
+Add long options to busybox du to support use in minimal environments which use
+apt and Debian packaging scripts
+
 diff --git a/coreutils/du.c b/coreutils/du.c
 index 832dd75..d5242ad 100644
 --- a/coreutils/du.c

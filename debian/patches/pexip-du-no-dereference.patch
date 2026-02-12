@@ -1,3 +1,6 @@
+Add --no-dereference flag to busybox cp to support use in minimal environments
+which use apt and Debian packaging scripts
+
 diff --git a/coreutils/du.c b/coreutils/du.c
 index 832dd75..e13c154 100644
 --- a/coreutils/du.c

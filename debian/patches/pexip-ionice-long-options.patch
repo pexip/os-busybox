@@ -1,3 +1,6 @@
+Add long options to busybox ionice to support use in minimal environments which
+use apt and Debian packaging scripts
+
 diff --git a/util-linux/ionice.c b/util-linux/ionice.c
 index 82bd309..d92db14 100644
 --- a/util-linux/ionice.c

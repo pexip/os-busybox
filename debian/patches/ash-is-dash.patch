@@ -1,3 +1,6 @@
+Add the dash name to busybox shell to support use in minimal environments
+which use apt and Debian packaging scripts
+
 --- busybox.orig/shell/ash.c
 +++ busybox/shell/ash.c
 @@ -176,6 +176,7 @@

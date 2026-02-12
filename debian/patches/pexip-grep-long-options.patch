@@ -1,3 +1,6 @@
+Add long options to busybox grep to support use in minimal environments which
+use apt and Debian packaging scripts
+
 diff --git a/findutils/grep.c b/findutils/grep.c
 index 8600d72..49119b2 100644
 --- a/findutils/grep.c

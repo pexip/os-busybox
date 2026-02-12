@@ -1,3 +1,6 @@
+Add long options busybox stat to support use in minimal environments
+which use apt and Debian packaging scripts
+
 diff --git a/coreutils/stat.c b/coreutils/stat.c
 index 2c2909e..6a9f9fc 100644
 --- a/coreutils/stat.c
