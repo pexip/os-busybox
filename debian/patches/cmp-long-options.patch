@@ -1,0 +1,3 @@
+Add long options to busybox cmp to support use in minimal environments which
+use apt and Debian packaging scripts
+
